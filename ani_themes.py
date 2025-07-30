@@ -10,26 +10,43 @@ from time import sleep
 from datetime import datetime, time,timedelta
 # import importlib.resources
 
+from rich_console import *
 from jikan_fetcher import get_animes_by_keyword,get_openings_from_list,get_random_title_themes
 from yt_finder import get_yt_link
 from helper_functions import *
 
-#! OS Check #
-if os.name != 'nt':
-    logging.info("This script runs only on Windows.")
-    sys.exit(1)
+#! JSON Files Setup #
+try:
+    config_manager = ConfigManager()
+    config = config_manager.load()
+except:
+    config_template = {
+    "ANI-THEMES-WINDOW-PLACEMENT": "top_right",
+    "ANI-THEMES-HASJSON": "True",
+    "ANI-THEMES-API-SEARCH-COUNT": 3,
+    "ANI-THEMES-JSON-PLAYLIST-COUNT": 20,
+    "YOUTUBE_API_KEY": "INSERT KEY HERE",
+    "YOUTUBE_API_LIMIT_PER_DAY": 100,
+    "YOUTUBE_API_CALL_COUNTER": 5,
+    "LAST_API_RESET_DATE": "2025-07-30",
+    "CURRENT-PLAYLIST": [],
+    "CURRENT_INDEX": 0,
+    "BLACKLISTED": []
+    }
+    with open("config.json", "w") as f:
+        json.dump(config_template, f, indent=4)
+    config_manager = ConfigManager()
+    config = config_manager.load()
 
-#! Logging Setup #
-# Setup logging format and level
-logging.basicConfig(
-    level=logging.INFO,  # change to DEBUG for detailed logs
-    format='[%(asctime)s] %(levelname)s: %(message)s',
-    datefmt='%H:%M:%S'
-)
-
-#! Config Setup #
-config_manager = ConfigManager()
-config = config_manager.load()
+try:
+    with open("yt_anithemes_links.json","r") as l:
+        pass
+except:
+    links_template = {
+    "videos": [] 
+    }
+    with open("yt_anithemes_links.json", "w") as f:
+        json.dump(links_template, f, indent=4)
 
 #! API Reset Check #
 now = datetime.now()
@@ -39,7 +56,7 @@ if now.time() >= reset_time:
 else:
     today_str = (now - timedelta(days=1)).strftime("%Y-%m-%d")
 if config.get("LAST_API_RESET_DATE") != today_str:
-    logging.info("New day detected — resetting API counter to 0.")
+    warning("New day detected — resetting API counter to 0.")
     config["YOUTUBE_API_CALL_COUNTER"] = 0
     config["LAST_API_RESET_DATE"] = today_str
     config_manager.save(config)
@@ -56,33 +73,33 @@ CONTROLLER_PIPE = r'\\.\pipe\controllerpipe'
 def send_command(handle, cmd):
     data = json.dumps(cmd) + "\n"
     win32file.WriteFile(handle, data.encode('utf-8'))
-    logging.info(f"[>] Sent command to {handle}: {cmd}")
+    dataout(f"Sent command to {handle}: {cmd}")
 
-def connect_to_pipe(pipe_name, retries=10, delay=0.5):
+def connect_to_pipe(pipe_name, retries = 10):
     try:
         handle = win32file.CreateFile(
             pipe_name,
             win32file.GENERIC_READ | win32file.GENERIC_WRITE,
             0, None, win32file.OPEN_EXISTING, 0, None
         )
-        logging.info(f"[*] Connected to {pipe_name}")
+        success(f"Connected to {pipe_name}")
         return handle
     except pywintypes.error as e:
         if e.winerror == 2:
-            logging.warning(f"[!] Pipe {pipe_name} not found.")
+            failure(f"Pipe {pipe_name} not found.")
             return None
         else:
             raise
 
 def launch_controller():
-    logging.info("[*] Launching mpv_controller.py...")
+    processing("Launching mpv_controller.py...")
 
     # controller_path = importlib.resources.files("ani_themes").joinpath("mpv_controller.py")
     subprocess.Popen(
         [sys.executable, "mpv_controller.py"],#str(controller_path)],
         creationflags=subprocess.CREATE_NO_WINDOW
     )
-    # logging.info(f"[*] Launched controller at {controller_path}")
+    # print(f"[*] Launched controller at {controller_path}")
     sleep(2)
 
 
@@ -90,17 +107,17 @@ def ensure_controller_running():
     mpv_handle = connect_to_pipe(IPC_PIPE)
     controller_handle = connect_to_pipe(CONTROLLER_PIPE)
     if mpv_handle is None or controller_handle is None:
-        logging.info("[*] Controller not detected. Launching...")
+        warning("Controller not detected. Launching...")
         launch_controller()
         mpv_handle = connect_to_pipe(IPC_PIPE, retries=10)
         controller_handle = connect_to_pipe(CONTROLLER_PIPE, retries=10)
         if controller_handle:
-            logging.info("Controller is live and responsive.")
+            finalok("Controller is live and responsive.")
         else:
-            logging.warning("Controller is not responding. Attempting restart...")
+            failure("Controller is not responding. Attempting restart...")
             launch_controller()
         if mpv_handle is None or controller_handle is None:
-            logging.error("[ERROR] Failed to connect after launching controller.")
+            fatal("Failed to connect after launching controller.")
             sys.exit(1)
     return mpv_handle, controller_handle
 
@@ -125,17 +142,17 @@ def main():
             "data": {"has_json": LOCAL_MODE}
         })
 
-        logging.info("+--------------------------------+")
-        logging.info("| 🎵 Loading playlist...         |")
-        logging.info("| This may take a while...       |")
-        logging.info("| Upon completion, auto restart  |")
-        logging.info("| This may take a few seconds... |")
-        logging.info("+--------------------------------+")
+        user("+--------------------------------+")
+        user("| 🎵 Loading playlist...         |")
+        user("| This may take a while...       |")
+        user("| Upon completion, auto restart  |")
+        user("| This may take a few seconds... |")
+        user("+--------------------------------+")
         while True:
             options = ["Next","Replay","Previous","View Current Playlist", "Exit"]
             user_input = multi_prompt(options,"ani-themes")
             if user_input == "Next":
-                print("If it’s taking a bit, the player might be refreshing the playlist...")
+                user("If it’s taking a bit, the player might be refreshing the playlist...")
                 send_command(controller_handle, {"command": "next"})
             elif user_input == "Replay":
                 send_command(controller_handle, {"command": "replay"})
@@ -154,7 +171,7 @@ def main():
     def search_mode():
         anime_keyword = input("Search anime: ")
         if anime_keyword:
-            logging.info("[*] Fetching data...")
+            datain("Fetching data...")
             results = get_openings_from_list(get_animes_by_keyword(anime_keyword))
             anime = [r[0] for r in results]
             openings = [r[1]["Openings"] for r in results]
@@ -206,7 +223,7 @@ def main():
             elif user_input == "Replay":
                 send_command(controller_handle, {"command": "replay"})
             elif user_input == "Exit":
-                logging.info("[*] Exiting mpv player loop.")
+                warning("Exiting mpv player loop.")
                 send_command(controller_handle, {"command": "quit"})
                 break
             sleep(0.2)
@@ -244,12 +261,12 @@ def main():
             api_limit = config.get("YOUTUBE_API_LIMIT_PER_DAY", 0)
             api_counter = config.get("YOUTUBE_API_CALL_COUNTER", 0)
             remaining = api_limit - api_counter
-            logging.info("\n=== YouTube API Stats ===")
-            logging.info(f"API Key: {api_key if api_key else '(empty)'}")
-            logging.info(f"Daily Limit: {api_limit}")
-            logging.info(f"Calls Used Today: {api_counter}")
-            logging.info(f"Remaining Calls Today: {remaining if remaining >= 0 else 0}")
-            logging.info("==========================\n")
+            print("\n=== YouTube API Stats ===")
+            print(f"API Key: {api_key if api_key else '(empty)'}")
+            print(f"Daily Limit: {api_limit}")
+            print(f"Calls Used Today: {api_counter}")
+            print(f"Remaining Calls Today: {remaining if remaining >= 0 else 0}")
+            print("==========================\n")
         elif user_input == "Blacklist Menu":
             while True:
                 user_input = multi_prompt(["View Blacklist","Edit Blacklist","Add to Blacklist","Back"],"Menu")
@@ -292,15 +309,15 @@ def main():
             random_mode()
     finally:
         if mpv_handle:
-            logging.info("[*] Closing mpv_handle")
+            warning("Closing mpv_handle")
             win32file.CloseHandle(mpv_handle)
         if controller_handle:
-            logging.info("[*] Closing controller_handle")
+            warning("Closing controller_handle")
             win32file.CloseHandle(controller_handle)
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        logging.info("Exiting cleanly...")
+        warning("Exiting cleanly...")
     

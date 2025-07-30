@@ -69,16 +69,3 @@ Pick an anime series and enjoy!
 
 ---
 
-## 📁 Project Structure
-
-```
-ani-themes/
-├── ani-themes.py
-├── requirements.txt
-└── README.md
-```
-
----
-
-
----

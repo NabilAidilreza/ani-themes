@@ -40,6 +40,11 @@ scoop bucket add extras
 scoop install mpv
 ```
 
+### 4. Verify Dependencies
+```powershell
+mpv --version
+```
+
 ---
 
 ## 🐍 Python Setup

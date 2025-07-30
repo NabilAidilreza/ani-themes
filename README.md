@@ -6,7 +6,6 @@ Working on library version...
 
 - Search and stream anime openings easily from your terminal  
 - Minimal, fast, and fully keyboard-driven  
-- Uses `ani-cli` for anime content and `mpv` for playback
 
 ---
 

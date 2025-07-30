@@ -1,10 +1,10 @@
 # 🎵 ani-themes  
-A CLI tool to play anime openings using `ani-cli`, `mpv`, and other dependencies.
+A CLI tool to play anime openings using JIKAN & YT API via `mpv`, and other dependencies.
 Working on library version...
 
 ## 📦 Features
 
-- Search and stream anime openings easily from your terminal  
+- Search and stream anime openings easily from your terminal
 - Minimal, fast, and fully keyboard-driven  
 
 ---

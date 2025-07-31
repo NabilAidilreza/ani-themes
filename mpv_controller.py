@@ -8,7 +8,7 @@ import win32pipe
 import threading
 from screeninfo import get_monitors
 from playlist_generator import create_playlist_from_json,create_playlist_from_api
-from helper_functions import ConfigManager
+from helper_functions import ConfigManager,write_progress
 
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s')
 
@@ -322,7 +322,6 @@ def listen_controller():
                             playlist, titles = create_playlist_from_api(YOUTUBE_API_KEY,YOUTUBE_SEARCH_URL)
                         config['CURRENT-PLAYLIST'] = titles
                         config_manager.save(config)
-
                         current_index = 0
                         play_current()
                     elif command == "loadsingle":

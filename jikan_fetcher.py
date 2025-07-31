@@ -13,36 +13,34 @@ def fetch_jikan(api,params):
         print(f"JSON decoding failed: {e}")
         return None
     
-def get_random_title_themes(num = 10):
+def get_random_title_themes(num = 5, page_span = 3):
     JIKAN_TOP = "https://api.jikan.moe/v4/top/anime"
     JIKAN_THEMES = "https://api.jikan.moe/v4/anime/{id}/themes"
-    params = {
-        "type": "tv",
-        "filter": "bypopularity",
-        "page": 1
-    }
     # print("Fetching top anime pages...")
+    # Pick a random start page (ensure at least page_span pages available)
+    max_start_page = max(1, 10 - (page_span - 1))  # Avoid going past page 10
+    start_page = random.randint(1, max_start_page)
+    pages = range(start_page, start_page + page_span)
+    
     all_anime = []
-    if num >= 3:
-        random_start = random.randint(1, num - 2)  # ensure room for +2
-        random_end = random.randint(random_start + 2, num)
-    else:
-        random_start = 1
-        random_end = num
-    for page in range(random_start, random_end):  # fetch first 2 pages (adjust higher if needed)
-        params['page'] = page
+    
+    for page in pages:
+        params = {
+            "type": "tv",
+            "filter": "bypopularity",
+            "page": page
+        }
         try:
-            data = fetch_jikan(JIKAN_TOP, params)['data']
-        except:
-            data = []
-        all_anime.extend(data)
+            response = fetch_jikan(JIKAN_TOP, params)
+            data = response.get("data", [])
+            all_anime.extend(data)
+        except Exception as e:
+            print(f"[!] Failed to fetch page {page}: {e}")
     # Filter for recent anime (from 2005 or newer)
     recent_anime = [
         anime for anime in all_anime 
         if 'year' in anime and anime['year'] is not None and anime['year'] >= 2005
-    ]
-    if not recent_anime:
-        recent_anime = all_anime  # fallback if none meet criteria
+    ] or all_anime
     random_title = random.choice(recent_anime)
     name = random_title["titles"][0]["title"]
     id = random_title["mal_id"]
@@ -66,19 +64,29 @@ def get_multiple_random_themes(num_of_anime):
             print(f"⚠ Duplicate found: {name}, skipping...")
 
     return collected
-def get_animes_by_keyword(keyword):
+
+def get_animes_by_keyword(keyword, max_results=20):
     results = []
     seen_ids = set()
+    
+    # Add 'limit' and better query
     for anime_type in ["tv", "movie"]:
         params = {
+            "q": keyword,
             "type": anime_type,
-            "q": keyword + " anime op"
+            "limit": max_results,  # Jikan supports this
+            "order_by": "popularity",  # or "score", "favorites"
+            "sort": "asc"  # or "desc"
         }
-        data = fetch_jikan("https://api.jikan.moe/v4/anime", params)['data']
-        for d in data:
+        response = fetch_jikan("https://api.jikan.moe/v4/anime", params)
+        if not response or 'data' not in response:
+            continue
+        for d in response['data']:
             if d['mal_id'] not in seen_ids:
                 results.append([d['mal_id'], d["title"]])
                 seen_ids.add(d['mal_id'])
+                if len(results) >= max_results:
+                    return results  # Return early if enough
     return results
 
 def get_openings_from_list(array):

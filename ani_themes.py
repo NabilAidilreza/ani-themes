@@ -5,9 +5,10 @@ import argparse
 import pywintypes
 import win32file
 import win32pipe
-import logging
 from time import sleep
-from datetime import datetime, time,timedelta
+from datetime import datetime,timedelta
+from datetime import time as tm
+
 # import importlib.resources
 
 from rich_console import *
@@ -48,9 +49,18 @@ except:
     with open("yt_anithemes_links.json", "w") as f:
         json.dump(links_template, f, indent=4)
 
+try:
+    with open("progress.json","r") as l:
+        pass
+except:
+    template = {
+    }
+    with open("progress.json", "w") as f:
+        json.dump(template, f, indent=4)
+
 #! API Reset Check #
 now = datetime.now()
-reset_time = time(15, 0)  # 15:00
+reset_time = tm(15, 0)  # 15:00
 if now.time() >= reset_time:
     today_str = now.strftime("%Y-%m-%d")
 else:
@@ -136,18 +146,27 @@ def main():
     args = parser.parse_args()
     mpv_handle, controller_handle = None, None
     def playlist_mode():
+        ### Send Start Signal ###
         mpv_handle, controller_handle = ensure_controller_running()
         send_command(controller_handle, {
             "command": "loadplaylist",
             "data": {"has_json": LOCAL_MODE}
         })
-
         user("+--------------------------------+")
         user("| 🎵 Loading playlist...         |")
         user("| This may take a while...       |")
         user("| Upon completion, auto restart  |")
         user("| This may take a few seconds... |")
         user("+--------------------------------+")
+        ### Loading Portion ###
+        progress_info = {
+            "status": "Initializing...",
+            "song_name": "",
+            "song_link": ""
+        }
+        write_progress(progress_info)
+        display_progress()
+        ### Controls ###
         while True:
             options = ["Next","Replay","Previous","View Current Playlist", "Exit"]
             user_input = multi_prompt(options,"ani-themes")
@@ -172,7 +191,8 @@ def main():
         anime_keyword = input("Search anime: ")
         if anime_keyword:
             datain("Fetching data...")
-            results = get_openings_from_list(get_animes_by_keyword(anime_keyword))
+            with time_check():
+                results = get_openings_from_list(get_animes_by_keyword(anime_keyword))
             anime = [r[0] for r in results]
             openings = [r[1]["Openings"] for r in results]
             which_anime = multi_prompt(anime, "Anime Search")
@@ -301,6 +321,7 @@ def main():
                 playlist_mode()
             elif user_input == "Config":
                 edit_config()
+                main()
         if args.p:
             playlist_mode()
         elif args.s:

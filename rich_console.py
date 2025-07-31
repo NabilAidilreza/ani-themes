@@ -35,7 +35,7 @@ def dataout(text, console=Console()):
     console.print("[cyan1][>] " + text + "[/cyan1]")
 
 def datain(text, console=Console()):
-    console.print("[dodger_blue1][<] " + text + "[/dodger_blue1]")
+    console.print("[dodger_blue1][<] " + text + "[/dodger_blue1]", end="")
 
 def fatal(text, console=Console()):
     console.print("[red3][X] " + text + "[/red3]")

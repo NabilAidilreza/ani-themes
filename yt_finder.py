@@ -1,7 +1,7 @@
 import os
 import json
 import requests
-from helper_functions import ConfigManager
+from helper_functions import ConfigManager,write_progress
 
 def save_unique_youtube_video(anime_name, title, url, filename="yt_anithemes_links.json"):
     if os.path.exists(filename):
@@ -83,6 +83,12 @@ def get_yt_link(anime_name,title,api_key,yt_search_url):
         video_id = items[0]['id']['videoId']
         song_title = items[0]['snippet']['title']
         url = f"https://www.youtube.com/watch?v={video_id}"
+        progress_info = {
+            "status": "Processing...",
+            "song_name": song_title,
+            "song_link": url
+        }
+        write_progress(progress_info)
         save_unique_youtube_video(anime_name,song_title,url)
         return url
     else:

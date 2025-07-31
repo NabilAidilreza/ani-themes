@@ -1,6 +1,6 @@
 import random
-
-from helper_functions import ConfigManager
+from time import sleep
+from helper_functions import ConfigManager,write_progress
 from jikan_fetcher import get_random_title_themes
 from yt_finder import get_yt_link,get_yt_links
 
@@ -33,21 +33,26 @@ def create_playlist_from_json(filename='yt_anithemes_links.json', count=ANI_THEM
                for black in blacklist)
     ]
     if not filtered_videos:
-        print("[MPV] ⚠ No videos left after applying blacklist.")
+        #print("[MPV] ⚠ No videos left after applying blacklist.")
         return [], []
     selected = random.sample(filtered_videos, min(count, len(filtered_videos)))
     playlist = [video['url'] for video in selected]
     titles = [video['title'] for video in selected]
-    print(f"[MPV] 🎵 Generated playlist with {len(playlist)} videos (after blacklist).")
-    for title in titles:
-        print(title)
+    progress_info = {
+        "status": "Completed!",
+        "song_name": f"Generated playlist with {len(playlist)} videos (after blacklist).",
+        "song_link": ""
+    }
+    write_progress(progress_info)
     return playlist, titles
 
 def create_playlist_from_api(api_key, yt_search_url, count=ANI_THEMES_API_SEARCH_COUNT):
     collected = set()
+    counter = set()
     all_openings = []
     blacklist = BLACKLIST
     titles = []
+
     while len(collected) < count:
         name, themes = get_random_title_themes()
         # Improved blacklist check: case-insensitive substring check

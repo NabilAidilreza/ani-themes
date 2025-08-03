@@ -4,17 +4,16 @@ import random
 import argparse
 import pywintypes
 import win32file
-import win32pipe
 from time import sleep
 from datetime import datetime,timedelta
 from datetime import time as tm
 
 # import importlib.resources
 
+from utils import *
 from rich_console import *
-from jikan_fetcher import get_animes_by_keyword,get_openings_from_list,get_random_title_themes
-from yt_finder import get_yt_link
-from helper_functions import *
+from jikan_client import get_animes_by_keyword,get_openings_from_list,get_random_title_themes
+from yt_client import get_yt_link
 
 #! JSON Files Setup #
 try:
@@ -40,13 +39,13 @@ except:
     config = config_manager.load()
 
 try:
-    with open("yt_anithemes_links.json","r") as l:
+    with open("saved_yt_links.json","r") as l:
         pass
 except:
     links_template = {
     "videos": [] 
     }
-    with open("yt_anithemes_links.json", "w") as f:
+    with open("saved_yt_links.json", "w") as f:
         json.dump(links_template, f, indent=4)
 
 try:
@@ -145,9 +144,17 @@ def main():
     parser.add_argument("-r", action="store_true", help="Play a random anime opening.")
     args = parser.parse_args()
     mpv_handle, controller_handle = None, None
-    def playlist_mode():
+    def check_archive_if_no_link(yt_link,opening):
+        if yt_link == "" and os.path.exists("saved_yt_links.json"):
+            with open("saved_yt_links.json", "r", encoding="utf-8") as f:
+                parsed = json.load(f)
+                return next((v['url'] for v in parsed['videos'] if opening in v['title']), "")
+        else:
+            return yt_link
+    def playlist_mode(mpv_handle = None, controller_handle = None):
         ### Send Start Signal ###
-        mpv_handle, controller_handle = ensure_controller_running()
+        if mpv_handle is None or controller_handle is None:
+            mpv_handle, controller_handle = ensure_controller_running()
         send_command(controller_handle, {
             "command": "loadplaylist",
             "data": {"has_json": LOCAL_MODE}
@@ -187,12 +194,16 @@ def main():
             elif user_input == "Exit":
                 send_command(controller_handle, {"command": "quit"})
                 break
-    def search_mode():
+    def search_mode(mpv_handle = None, controller_handle = None,enterFlag = False):
         anime_keyword = input("Search anime: ")
         if anime_keyword:
-            datain("Fetching data...")
-            with time_check():
+            loading_anim,anim_thread = datain_anim("Fetching data")
+            with time_check() as tc:
                 results = get_openings_from_list(get_animes_by_keyword(anime_keyword))
+                loading_anim.set() # Stop animation
+                anim_thread.join()
+            datain("Fetching data...")
+            print(f" [✅ took {tc['elapsed']:.2f}s]")
             anime = [r[0] for r in results]
             openings = [r[1]["Openings"] for r in results]
             which_anime = multi_prompt(anime, "Anime Search")
@@ -200,21 +211,27 @@ def main():
             cleaned_openings = [o.replace('"', '') for o in openings[chosen]]
             opening = (multi_prompt(cleaned_openings, "Openings")
                     if len(cleaned_openings) > 1 else cleaned_openings[0])
-            yt_link = get_yt_link(which_anime, opening, YOUTUBE_API_KEY, YOUTUBE_SEARCH_URL)
-            if yt_link == "" and os.path.exists("yt_anithemes_links.json"):
-                with open("yt_anithemes_links.json", "r", encoding="utf-8") as f:
-                    parsed = json.load(f)
-                    yt_link = next((v['url'] for v in parsed['videos'] if opening in v['title']), "")
-            mpv_handle, controller_handle = ensure_controller_running()
-            send_command(controller_handle, {
-                "command": "loadsingle",
-                "data": {"url": yt_link}
-            })
+            yt_link,song_title,save_msg = get_yt_link(which_anime, opening, YOUTUBE_API_KEY, YOUTUBE_SEARCH_URL)
+            yt_link = check_archive_if_no_link(yt_link,opening)
+            if mpv_handle is None or controller_handle is None:
+                mpv_handle, controller_handle = ensure_controller_running()
+            if enterFlag == False:
+                send_command(controller_handle, {
+                    "command": "loadsingle",
+                    "data": {"url": yt_link}
+                })
+                music(song_title,context=save_msg,status="Now Playing")
+            else:
+                send_command(controller_handle, {
+                    "command": "loadsingle_queue",
+                    "data": {"url": yt_link}
+                })
+                music(song_title,context=save_msg,status="Added to Queue")
             mpv_player(which_anime, anime, openings, yt_link,mpv_handle,controller_handle)
     def mpv_player(anime_title,animes,openings,yt_link,mpv_handle,controller_handle):
         main_title = get_main_title(anime_title)
         while True:
-            user_input = multi_prompt([f"{main_title} OPs", "Replay", "Exit"], "ani-themes")
+            user_input = multi_prompt([f"{main_title} OPs", "Replay","Look Up Another Anime", "Exit"], "ani-themes")
             if user_input == f"{main_title} OPs":
                 s_ops = [
                     o.replace('"', '')
@@ -224,40 +241,34 @@ def main():
                 ]
                 opening = multi_prompt(s_ops,f"{main_title}")
                 play_or_queue = multi_prompt(['Play','Add to queue','Back'],"Song Options")
+                yt_link,song_title,save_msg = get_yt_link(anime_title,opening,YOUTUBE_API_KEY,YOUTUBE_SEARCH_URL)
+                yt_link = check_archive_if_no_link(yt_link,opening)
                 if play_or_queue == 'Play':
-                    yt_link = get_yt_link(anime_title,opening,YOUTUBE_API_KEY,YOUTUBE_SEARCH_URL)
-                    if yt_link == "" and os.path.exists("yt_anithemes_links.json"):
-                        with open("yt_anithemes_links.json", "r", encoding="utf-8") as f:
-                            parsed = json.load(f)
-                            yt_link = next((v['url'] for v in parsed['videos'] if opening in v['title']), "")
+                    music(song_title,context=save_msg,status="Now Playing")
                     send_command(controller_handle, {"command": "loadsingle", "data": {"url": yt_link}})
                 elif play_or_queue == 'Add to queue':
-                    yt_link = get_yt_link(anime_title,opening,YOUTUBE_API_KEY,YOUTUBE_SEARCH_URL)
-                    if yt_link == "" and os.path.exists("yt_anithemes_links.json"):
-                        with open("yt_anithemes_links.json", "r", encoding="utf-8") as f:
-                            parsed = json.load(f)
-                            yt_link = next((v['url'] for v in parsed['videos'] if opening in v['title']), "")
+                    music(song_title,context=save_msg,status="Added to Queue")
                     send_command(controller_handle, {"command": "loadsingle_queue", "data": {"url": yt_link}})
                 else:
                     continue
             elif user_input == "Replay":
                 send_command(controller_handle, {"command": "replay"})
+            elif user_input == "Look Up Another Anime":
+                return search_mode(mpv_handle,controller_handle,True)
             elif user_input == "Exit":
                 warning("Exiting mpv player loop.")
                 send_command(controller_handle, {"command": "quit"})
                 break
             sleep(0.2)
-    def random_mode():
-        mpv_handle, controller_handle = ensure_controller_running()
+    def random_mode(mpv_handle = None, controller_handle = None):
+        if mpv_handle is None or controller_handle is None:
+            mpv_handle, controller_handle = ensure_controller_running()
         anime_data = get_random_title_themes()
         anime_title = anime_data[0]
         openings = anime_data[1]["Openings"]
         opening = random.choice(openings)
-        yt_link = get_yt_link(anime_title,opening,YOUTUBE_API_KEY,YOUTUBE_SEARCH_URL)
-        if yt_link == "" and os.path.exists("yt_anithemes_links.json"):
-            with open("yt_anithemes_links.json", "r", encoding="utf-8") as f:
-                parsed = json.load(f)
-                yt_link = next((v['url'] for v in parsed['videos'] if opening in v['title']), "")
+        yt_link,song_title,save_msg = get_yt_link(anime_title,opening,YOUTUBE_API_KEY,YOUTUBE_SEARCH_URL)
+        yt_link = check_archive_if_no_link(yt_link,opening)
         send_command(controller_handle, {
             "command": "loadsingle",
             "data": {"url": yt_link}
@@ -281,12 +292,12 @@ def main():
             api_limit = config.get("YOUTUBE_API_LIMIT_PER_DAY", 0)
             api_counter = config.get("YOUTUBE_API_CALL_COUNTER", 0)
             remaining = api_limit - api_counter
-            print("\n=== YouTube API Stats ===")
-            print(f"API Key: {api_key if api_key else '(empty)'}")
-            print(f"Daily Limit: {api_limit}")
-            print(f"Calls Used Today: {api_counter}")
-            print(f"Remaining Calls Today: {remaining if remaining >= 0 else 0}")
-            print("==========================\n")
+            user("\n=== YouTube API Stats ===")
+            user(f"API Key: {api_key if api_key else '(empty)'}")
+            user(f"Daily Limit: {api_limit}")
+            user(f"Calls Used Today: {api_counter}")
+            user(f"Remaining Calls Today: {remaining if remaining >= 0 else 0}")
+            user("==========================\n")
         elif user_input == "Blacklist Menu":
             while True:
                 user_input = multi_prompt(["View Blacklist","Edit Blacklist","Add to Blacklist","Back"],"Menu")

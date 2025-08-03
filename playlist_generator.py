@@ -1,8 +1,7 @@
 import random
-from time import sleep
-from helper_functions import ConfigManager,write_progress
-from jikan_fetcher import get_random_title_themes
-from yt_finder import get_yt_link,get_yt_links
+from utils import ConfigManager,write_progress
+from jikan_client import get_random_title_themes
+from yt_client import get_yt_link,get_yt_links
 
 config_manager = ConfigManager()
 config = config_manager.load()
@@ -17,7 +16,7 @@ def fetch_more_songs():
     jikan_data = get_random_title_themes()
     get_yt_links(jikan_data,YOUTUBE_API_KEY,YOUTUBE_SEARCH_URL)
 
-def create_playlist_from_json(filename='yt_anithemes_links.json', count=ANI_THEMES_JSON_PLAYLIST_COUNT):
+def create_playlist_from_json(filename='saved_yt_links.json', count=ANI_THEMES_JSON_PLAYLIST_COUNT):
     try:
         data_manager = ConfigManager(filename)
         data = data_manager.load()
@@ -48,7 +47,6 @@ def create_playlist_from_json(filename='yt_anithemes_links.json', count=ANI_THEM
 
 def create_playlist_from_api(api_key, yt_search_url, count=ANI_THEMES_API_SEARCH_COUNT):
     collected = set()
-    counter = set()
     all_openings = []
     blacklist = BLACKLIST
     titles = []

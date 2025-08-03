@@ -32,10 +32,10 @@ class ConfigManager:
 def time_check():
     from time import time
     start = time()
-    yield
+    elapsed = {}
+    yield elapsed   # yield a mutable container
     end = time()
-    elapsed = end - start
-    print(f" [✅ took {elapsed:.2f}s]")
+    elapsed['elapsed'] = end - start
 
 def get_main_title(title):
     # Remove trailing parts like '2', '2nd Season', 'Final Season', 'II', 'III', 'Movie'
@@ -64,7 +64,7 @@ def multi_prompt(options,msg,current=-1):
     return prompt_option[0]
 
 def load_all_unique_titles():
-    data_manager = ConfigManager('yt_anithemes_links.json')
+    data_manager = ConfigManager('saved_yt_links.json')
     data = data_manager.load()
     anime_titles = set()
     for video in data['videos']:
@@ -130,3 +130,26 @@ def write_progress(info, filepath=PROGRESS_FILE):
         json.dump(info, tf)
         tempname = tf.name
     os.replace(tempname, filepath)
+
+
+def remove_duplicates(input_file, output_file):
+    with open(input_file, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    seen = set()
+    unique = []
+
+    for entry in data["videos"]:
+        key = (entry["title"].strip().lower(), entry["url"].strip())
+        if key not in seen:
+            seen.add(key)
+            unique.append(entry)
+
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump({"videos": unique}, f, indent=4, ensure_ascii=False)
+
+    print(f"✅ Removed duplicates. {len(data['videos']) - len(unique)} duplicates found.")
+    print(f"📁 Output saved to: {output_file}")
+
+# # Example usage
+# remove_duplicates("saved_yt_links.json", "saved_yt_links_c.json")

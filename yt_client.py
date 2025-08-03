@@ -1,9 +1,10 @@
 import os
 import json
 import requests
-from helper_functions import ConfigManager,write_progress
+from rich_console import music
+from utils import ConfigManager,write_progress
 
-def save_unique_youtube_video(anime_name, title, url, filename="yt_anithemes_links.json"):
+def save_unique_youtube_video(anime_name, title, url, filename="saved_yt_links.json"):
     if os.path.exists(filename):
         with open(filename, "r",encoding="utf-8") as f:
             try:
@@ -20,24 +21,23 @@ def save_unique_youtube_video(anime_name, title, url, filename="yt_anithemes_lin
         videos.append({"anime":anime_name,"title": title, "url": url})
         with open(filename, "w",encoding='utf-8') as f:
             json.dump({"videos": videos}, f, indent=4, ensure_ascii=False)
-        print(f"🎶 {title}: {url} [Saved]")
+        return "[Saved]"
     else:
-        print(f"🎶 {title}: {url} [Exist => Skip]")
+        return "[Previously Saved]"
 
 def get_yt_links(jikan_data, api_key, yt_search_url):
     config_manager = ConfigManager()
     config = config_manager.load()
-    # with open('config.json') as f:
-    #     config = json.load(f)
-
     anime_name = jikan_data[0]
     openings = jikan_data[1]["Openings"]
     for op in openings:
         query = op.replace('"', '')
         params = {
             'part': 'snippet',
-            'q': f'{query} op creditless -official music video -MV',
+            'q': f'{query} official anime opening creditless',
             'type': 'video',
+            'order': 'relevance',
+            'safeSearch': 'strict',
             'key': api_key,
             'maxResults': 1
         }
@@ -50,7 +50,7 @@ def get_yt_links(jikan_data, api_key, yt_search_url):
                 video_id = items[0]['id']['videoId']
                 song_title = items[0]['snippet']['title']
                 url = f"https://www.youtube.com/watch?v={video_id}"
-                save_unique_youtube_video(anime_name, song_title, url)
+                save_msg = save_unique_youtube_video(anime_name, song_title, url)
             else:
                 print(f"No YouTube result found for: {query}")
 
@@ -68,15 +68,17 @@ def get_yt_link(anime_name,title,api_key,yt_search_url):
     query = title.replace('"', '')  # Clean up quotes
     params = {
         'part': 'snippet',
-        'q': f'{query} op creditless -official music video -MV',
+        'q': f'{query} anime op',
         'type': 'video',
+        'order': 'relevance',
+        'safeSearch': 'strict',
         'key': api_key,
         'maxResults': 1
     }
     config["YOUTUBE_API_CALL_COUNTER"] += 1
     with open("config.json", "w") as f:
         json.dump(config, f, indent=2)
-        f.close()
+
     yt_response = requests.get(yt_search_url, params=params).json()
     items = yt_response.get('items')
     if items:
@@ -89,8 +91,8 @@ def get_yt_link(anime_name,title,api_key,yt_search_url):
             "song_link": url
         }
         write_progress(progress_info)
-        save_unique_youtube_video(anime_name,song_title,url)
-        return url
+        save_msg = save_unique_youtube_video(anime_name,song_title,url)
+        return url,song_title,save_msg
     else:
         print(f"No YouTube result found for: {query}")
         return ""

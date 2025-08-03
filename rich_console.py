@@ -1,4 +1,8 @@
+import threading
+import time as ts
 from rich.console import Console
+from rich.live import Live
+from rich.text import Text
 
 def print(object, console=Console()):
     console.print(object)
@@ -37,6 +41,29 @@ def dataout(text, console=Console()):
 def datain(text, console=Console()):
     console.print("[dodger_blue1][<] " + text + "[/dodger_blue1]", end="")
 
+def datain_anim(text, console=Console()):
+    stop_event = threading.Event()
+    dots = ["", ".", "..", "...", " ..", " ."]
+
+    def run(live):
+        i = 0
+        while not stop_event.is_set():
+            frame = f"[dodger_blue1][<] {text}{dots[i % len(dots)]}[/dodger_blue1]"
+            live.update(Text.from_markup(frame))
+            i += 1
+            ts.sleep(0.3)
+        # On stop, update one last time with clean text (no dots)
+        final_frame = f"[dodger_blue1][<] {text}[/dodger_blue1]"
+        live.update(Text.from_markup(final_frame))
+
+    def target():
+        with Live("", console=console, refresh_per_second=10, transient=True) as live:
+            run(live)
+
+    thread = threading.Thread(target=target, daemon=True)
+    thread.start()
+    return stop_event, thread
+
 def fatal(text, console=Console()):
     console.print("[red3][X] " + text + "[/red3]")
 
@@ -45,3 +72,8 @@ def finalok(text, console=Console()):
 
 def finalstop(text, console=Console()):
     console.print("[bright_red](FAIL) " + text + "[/bright_red]")
+
+def music(title,status = "",context="", console=Console()):
+    console.print(
+        f"[hot_pink3][♪] {status}:[/hot_pink3] [bold white]{title}[/bold white] [grey53][/grey53] [bold cyan]{context}[/bold cyan]"
+    )

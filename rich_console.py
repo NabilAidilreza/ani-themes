@@ -3,6 +3,25 @@ import time as ts
 from rich.console import Console
 from rich.live import Live
 from rich.text import Text
+from contextlib import contextmanager
+
+TEXT_STYLES = {
+    "success":     ("green1",        "[+]"),
+    "failure":     ("red1",          "[-]"),
+    "question":    ("deep_sky_blue1","[?]"),
+    "warning":     ("gold1",         "[!]"),
+    "processing":  ("medium_purple", "[*]"),
+    "approx":      ("light_slate_grey", "[~]"),
+    "user":        ("medium_purple", ""),     # No symbol
+    "progress":    ("chartreuse1",   "[%]"),
+    "comment":     ("grey54",        "[#]"),
+    "dataout":     ("cyan1",         "[>]"),
+    "datain":      ("dodger_blue1",  "[<]"),
+    "fatal":       ("red3",          "[X]"),
+    "finalok":     ("spring_green1", "(OK)"),
+    "finalstop":   ("bright_red",    "(FAIL)"),
+    "music":       ("hot_pink3",     "[♪]"),
+}
 
 def print(object, console=Console()):
     console.print(object)
@@ -41,29 +60,6 @@ def dataout(text, console=Console()):
 def datain(text, console=Console()):
     console.print("[dodger_blue1][<] " + text + "[/dodger_blue1]", end="")
 
-def datain_anim(text, console=Console()):
-    stop_event = threading.Event()
-    dots = ["", ".", "..", "...", " ..", " ."]
-
-    def run(live):
-        i = 0
-        while not stop_event.is_set():
-            frame = f"[dodger_blue1][<] {text}{dots[i % len(dots)]}[/dodger_blue1]"
-            live.update(Text.from_markup(frame))
-            i += 1
-            ts.sleep(0.3)
-        # On stop, update one last time with clean text (no dots)
-        final_frame = f"[dodger_blue1][<] {text}[/dodger_blue1]"
-        live.update(Text.from_markup(final_frame))
-
-    def target():
-        with Live("", console=console, refresh_per_second=10, transient=True) as live:
-            run(live)
-
-    thread = threading.Thread(target=target, daemon=True)
-    thread.start()
-    return stop_event, thread
-
 def fatal(text, console=Console()):
     console.print("[red3][X] " + text + "[/red3]")
 
@@ -77,3 +73,56 @@ def music(title,status = "",context="", console=Console()):
     console.print(
         f"[hot_pink3][♪] {status}:[/hot_pink3] [bold white]{title}[/bold white] [grey53][/grey53] [bold cyan]{context}[/bold cyan]"
     )
+
+def rich_text_anim(text,text_type,anim_seq=["", ".", "..", "..."], console=Console()):
+    if text_type not in TEXT_STYLES:
+        console.print(f"[red1][!] Unknown text type: '{text_type}'[/red1]")
+        return
+    
+    color, symbol = TEXT_STYLES[text_type]
+    stop_event = threading.Event()
+    dots = anim_seq
+
+    def run(live):
+        i = 0
+        while not stop_event.is_set():
+            frame = f"[{color}]{symbol} {text}{dots[i % len(dots)]}[/{color}]"
+            live.update(Text.from_markup(frame))
+            i += 1
+            ts.sleep(0.3)
+        # On stop, update one last time with clean text (no dots)
+        final_frame = f"[{color}]{symbol} {text}[/{color}]"
+        live.update(Text.from_markup(final_frame))
+
+    def target():
+        with Live("", console=console, refresh_per_second=10, transient=True) as live:
+            run(live)
+
+    thread = threading.Thread(target=target, daemon=True)
+    thread.start()
+    return stop_event, thread
+
+@contextmanager
+def time_check():
+    from time import time
+    start = time()
+    elapsed = {}
+    yield elapsed   # yield a mutable container
+    end = time()
+    elapsed['elapsed'] = end - start
+
+def run_with_animation(func, *args, text,text_type, show_time=True, **kwargs):
+    console=Console()
+    stop_event, thread = rich_text_anim(text,text_type)
+
+    result = None
+    with time_check() as tc:
+        result = func(*args, **kwargs)
+        stop_event.set()
+        thread.join() # Prevent warning if already done
+    if show_time:
+        color, symbol = TEXT_STYLES.get(text_type, ("white", "[*]"))
+        console.print(
+            f"[{color}]{symbol} {text}[/{color}] [grey53](took {tc['elapsed']:.2f}s)[/grey53]"
+        )
+    return result

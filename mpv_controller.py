@@ -8,7 +8,7 @@ import win32pipe
 import threading
 from screeninfo import get_monitors
 from playlist_generator import create_playlist_from_json,create_playlist_from_api
-from utils import ConfigManager,write_progress
+from utils import ConfigManager
 
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s')
 

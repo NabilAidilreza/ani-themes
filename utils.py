@@ -1,7 +1,6 @@
 import os
 import re
 import json
-from contextlib import contextmanager
 # import importlib.resources
 import tempfile
 from time import sleep,time
@@ -9,7 +8,6 @@ from rich.live import Live
 from rich.console import Group
 from rich.spinner import Spinner
 from rich.panel import Panel
-from rich.align import Align
 from InquirerPy import prompt
 
 class ConfigManager:
@@ -28,14 +26,60 @@ class ConfigManager:
         with open(self.path, 'w') as f:
             json.dump(newdata, f, indent=2)
 
-@contextmanager
-def time_check():
-    from time import time
-    start = time()
-    elapsed = {}
-    yield elapsed   # yield a mutable container
-    end = time()
-    elapsed['elapsed'] = end - start
+FILEPATH = "progress.json"
+def read_progress(FILEPATH=FILEPATH):
+    try:
+        with open(FILEPATH, "r",encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+def display_progress(FILEPATH=FILEPATH):
+    last_mtime = None
+    last_change_time = time()
+    spinner = Spinner("dots")
+    last_panel = None
+
+    with Live(refresh_per_second=10, transient=True) as live:
+        while True:
+            if os.path.exists(FILEPATH):
+                mtime = os.path.getmtime(FILEPATH)
+                if mtime != last_mtime:
+                    last_mtime = mtime
+                    last_change_time = time()
+
+                    progress = read_progress()
+                    status = progress.get("status", "Waiting...")
+                    song = progress.get("song_name", "")
+                    link = progress.get("song_link", "")
+
+                    spinner.text = ""
+
+                    content = f"[bold]{status}[/bold]\n"
+                    if song:
+                        content += f"🎵 [cyan]{song}[/cyan]\n[blue underline]{link}[/blue underline]"
+
+                    group = Group(spinner, content)
+                    last_panel = Panel(group, title="Fetching Playlist")
+                    live.update(last_panel)
+
+                    if progress.get("done"):
+                        break
+
+            # If no update in 10s, show the last update once and break
+            if time() - last_change_time > 10:
+                if last_panel:
+                    live.update(last_panel)  # re-show last known panel
+                break
+
+            sleep(0.25)
+
+def write_progress(info,FILEPATH=FILEPATH):
+    dirpath = os.path.dirname(FILEPATH) or "."
+    with tempfile.NamedTemporaryFile("w", dir=dirpath, delete=False) as tf:
+        json.dump(info, tf)
+        tempname = tf.name
+    os.replace(tempname, FILEPATH)
 
 def get_main_title(title):
     # Remove trailing parts like '2', '2nd Season', 'Final Season', 'II', 'III', 'Movie'
@@ -73,63 +117,6 @@ def load_all_unique_titles():
         anime_titles.add(clean_title)
     unique_anime_list = sorted(list(anime_titles))
     return unique_anime_list
-
-
-PROGRESS_FILE = "progress.json"
-
-def read_progress(filepath=PROGRESS_FILE):
-    try:
-        with open(filepath, "r") as f:
-            return json.load(f)
-    except Exception:
-        return None
-
-def display_progress():
-    last_mtime = None
-    last_change_time = time()
-    spinner = Spinner("dots")
-    last_panel = None
-
-    with Live(refresh_per_second=10, transient=True) as live:
-        while True:
-            if os.path.exists(PROGRESS_FILE):
-                mtime = os.path.getmtime(PROGRESS_FILE)
-                if mtime != last_mtime:
-                    last_mtime = mtime
-                    last_change_time = time()
-
-                    progress = read_progress()
-                    status = progress.get("status", "Waiting...")
-                    song = progress.get("song_name", "")
-                    link = progress.get("song_link", "")
-
-                    spinner.text = ""
-
-                    content = f"[bold]{status}[/bold]\n"
-                    if song:
-                        content += f"🎵 [cyan]{song}[/cyan]\n[blue underline]{link}[/blue underline]"
-
-                    group = Group(spinner, content)
-                    last_panel = Panel(group, title="Fetching Playlist")
-                    live.update(last_panel)
-
-                    if progress.get("done"):
-                        break
-
-            # If no update in 10s, show the last update once and break
-            if time() - last_change_time > 10:
-                if last_panel:
-                    live.update(last_panel)  # re-show last known panel
-                break
-
-            sleep(0.25)
-
-def write_progress(info, filepath=PROGRESS_FILE):
-    dirpath = os.path.dirname(filepath) or "."
-    with tempfile.NamedTemporaryFile("w", dir=dirpath, delete=False) as tf:
-        json.dump(info, tf)
-        tempname = tf.name
-    os.replace(tempname, filepath)
 
 
 def remove_duplicates(input_file, output_file):

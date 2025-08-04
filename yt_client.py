@@ -1,7 +1,6 @@
 import os
 import json
 import requests
-from rich_console import music
 from utils import ConfigManager,write_progress
 
 def save_unique_youtube_video(anime_name, title, url, filename="saved_yt_links.json"):

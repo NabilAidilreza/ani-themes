@@ -73,29 +73,6 @@ while handle_read is None:
         else:
             raise
 
-# timeout = 10
-# start_time = time.time()
-# handle_read = None
-# while time.time() - start_time < timeout:
-#     try:
-#         handle_read = win32file.CreateFile(
-#             IPC_PIPE,
-#             win32file.GENERIC_READ | win32file.GENERIC_WRITE,
-#             0, None, win32file.OPEN_EXISTING, 0, None
-#         )
-#         logging.info("[Controller] Connected to mpv IPC pipe.")
-#         break
-#     except pywintypes.error as e:
-#         if e.winerror == 2:  # ERROR_FILE_NOT_FOUND
-#             logging.info("Waiting for mpv IPC pipe...")
-#             time.sleep(0.5)
-#         else:
-#             raise
-
-# if handle_read is None:
-#     logging.error("[Controller] Failed to connect to mpv IPC pipe after timeout.")
-#     # Handle this error as needed (exit or retry)
-
 def send_command(cmd):
     data = json.dumps(cmd) + "\n"
     win32file.WriteFile(handle_read, data.encode('utf-8'))
@@ -108,6 +85,7 @@ playlist_mode = False
 playlist = []
 titles = []
 current_index = 0
+recently_reloaded = False
 
 #! Video Player Functions (Playlist)
 def play_current():
@@ -120,7 +98,7 @@ def next_video():
     global current_index, skip_next_endfile,config,config_manager
     if current_index >= len(playlist) - 1:
         logging.info("[Controller] Reached end of playlist on manual next. Reloading new playlist.")
-        reload_new_playlist()
+        load_new_playlist()
     current_index = (current_index + 1) % len(playlist)
     config['CURRENT_INDEX'] = current_index
     config_manager.save(config)
@@ -151,15 +129,32 @@ def loop_video():
 def stoploop_video():
     send_command({"command": ["set_property", "loop", "no"]})
 
-def reload_new_playlist():
-    global playlist,titles, current_index,skip_next_endfile
-    logging.info("[Controller] Reloading new playlist.")
+def load_new_playlist():
+    global playlist, titles, current_index, skip_next_endfile, config, config_manager, recently_reloaded
+    config = config_manager.load()
+    HASJSON = config['ANI-THEMES-HASJSON']
+    logging.info("[Controller] Loading new playlist.")
+    
     if HASJSON == "True":
-        playlist, titles = create_playlist_from_json() 
+        playlist, titles = create_playlist_from_json()
     else:
-        playlist = create_playlist_from_api(YOUTUBE_API_KEY,YOUTUBE_SEARCH_URL)
-    current_index = 0 
+        playlist, titles = create_playlist_from_api(YOUTUBE_API_KEY, YOUTUBE_SEARCH_URL)
+    
+    current_index = 0
+    config['CURRENT-PLAYLIST'] = titles
+    config['CURRENT_INDEX'] = 0
+    config_manager.save(config)
+    
     skip_next_endfile = True
+    recently_reloaded = True
+
+    def reset_reload_flag():
+        global recently_reloaded
+        time.sleep(5)
+        recently_reloaded = False
+
+    threading.Thread(target=reset_reload_flag, daemon=True).start()
+
     play_current()
 
 def drain_pipe():
@@ -216,7 +211,7 @@ def cleanup():
 #! Event listener thread
 def listen_events():
     # Directly listens to mpv player events
-    global current_index, skip_next_endfile, playlist_mode, single_mode, shutdown_event,config,config_manager
+    global current_index, skip_next_endfile, playlist_mode, single_mode, shutdown_event,config,config_manager,recently_reloaded
     while not shutdown_event.is_set():
         try:
             peek_result = win32pipe.PeekNamedPipe(handle_read, 0)
@@ -237,9 +232,11 @@ def listen_events():
 
                                 if playlist_mode:
                                     if current_index == len(playlist) - 1:
-                                        reload_new_playlist()
-                                        config['CURRENT_INDEX'] = 0
-                                        config_manager.save(config)
+                                        if recently_reloaded:
+                                            logging.info("[MPV] Skipping auto-reload due to recent manual reload")
+                                            continue                                        
+                                        else:
+                                            load_new_playlist()
                                     else:
                                         skip_next_endfile = False
                                         current_index = (current_index + 1) % len(playlist)
@@ -264,29 +261,12 @@ controller_pipe = win32pipe.CreateNamedPipe(
     None
 )
 logging.info("[Controller] Waiting for external connection on controllerpipe...")
-win32pipe.ConnectNamedPipe(controller_pipe, None)
+try:
+    win32pipe.ConnectNamedPipe(controller_pipe, None)
+finally:
+    win32pipe.ConnectNamedPipe(controller_pipe, None)
 logging.info("[Controller] External controller connected!")
 handle_controller = controller_pipe
-
-# Start the named pipe server in a thread
-# def start_controller_pipe():
-#     global controller_pipe, handle_controller
-#     controller_pipe = win32pipe.CreateNamedPipe(
-#         r'\\.\pipe\controllerpipe',
-#         win32pipe.PIPE_ACCESS_DUPLEX,
-#         win32pipe.PIPE_TYPE_MESSAGE | win32pipe.PIPE_READMODE_MESSAGE | win32pipe.PIPE_WAIT,
-#         1, 65536, 65536,
-#         0,
-#         None
-#     )
-#     logging.info("[Controller] Waiting for external connection on controllerpipe...")
-#     win32pipe.ConnectNamedPipe(controller_pipe, None)
-#     logging.info("[Controller] External controller connected!")
-#     handle_controller = controller_pipe
-
-# pipe_thread = threading.Thread(target=start_controller_pipe, daemon=True)
-# pipe_thread.start()
-
 
 #! Controller listening thread
 def listen_controller():
@@ -316,14 +296,7 @@ def listen_controller():
                     if command == "loadplaylist":
                         single_mode = False
                         playlist_mode = True
-                        if HASJSON == "True":
-                            playlist, titles = create_playlist_from_json()
-                        else:
-                            playlist, titles = create_playlist_from_api(YOUTUBE_API_KEY,YOUTUBE_SEARCH_URL)
-                        config['CURRENT-PLAYLIST'] = titles
-                        config_manager.save(config)
-                        current_index = 0
-                        play_current()
+                        load_new_playlist()
                     elif command == "loadsingle":
                         single_mode = True
                         playlist_mode = False

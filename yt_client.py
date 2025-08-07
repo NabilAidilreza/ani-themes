@@ -23,44 +23,7 @@ def save_unique_youtube_video(anime_name, title, url, filename="saved_yt_links.j
         return "[Saved]"
     else:
         return "[Previously Saved]"
-
-def get_yt_links(jikan_data, api_key, yt_search_url):
-    config_manager = ConfigManager()
-    config = config_manager.load()
-    anime_name = jikan_data[0]
-    openings = jikan_data[1]["Openings"]
-    for op in openings:
-        query = op.replace('"', '')
-        params = {
-            'part': 'snippet',
-            'q': f'{query} official anime opening creditless',
-            'type': 'video',
-            'order': 'relevance',
-            'safeSearch': 'strict',
-            'key': api_key,
-            'maxResults': 1
-        }
-        try:
-            yt_response = requests.get(yt_search_url, params=params)
-            yt_response.raise_for_status()
-            data = yt_response.json()
-            items = data.get('items')
-            if items:
-                video_id = items[0]['id']['videoId']
-                song_title = items[0]['snippet']['title']
-                url = f"https://www.youtube.com/watch?v={video_id}"
-                save_msg = save_unique_youtube_video(anime_name, song_title, url)
-            else:
-                print(f"No YouTube result found for: {query}")
-
-            # Increment counter after the request
-            config["YOUTUBE_API_CALL_COUNTER"] += 1
-            with open("config.json", "w") as f:
-                json.dump(config, f, indent=2)
-
-        except requests.RequestException as e:
-            print(f"Request failed for {query}: {e}")
-
+    
 def get_yt_link(anime_name,title,api_key,yt_search_url): 
     config_manager = ConfigManager()
     config = config_manager.load()
@@ -94,4 +57,42 @@ def get_yt_link(anime_name,title,api_key,yt_search_url):
         return url,song_title,save_msg
     else:
         print(f"No YouTube result found for: {query}")
-        return ""
+        return "","",""
+
+# def get_yt_links(jikan_data, api_key, yt_search_url):
+#     config_manager = ConfigManager()
+#     config = config_manager.load()
+#     anime_name = jikan_data[0]
+#     openings = jikan_data[1]["Openings"]
+#     for op in openings:
+#         query = op.replace('"', '')
+#         params = {
+#             'part': 'snippet',
+#             'q': f'{query} official anime opening creditless',
+#             'type': 'video',
+#             'order': 'relevance',
+#             'safeSearch': 'strict',
+#             'key': api_key,
+#             'maxResults': 1
+#         }
+#         try:
+#             yt_response = requests.get(yt_search_url, params=params)
+#             yt_response.raise_for_status()
+#             data = yt_response.json()
+#             items = data.get('items')
+#             if items:
+#                 video_id = items[0]['id']['videoId']
+#                 song_title = items[0]['snippet']['title']
+#                 url = f"https://www.youtube.com/watch?v={video_id}"
+#                 save_msg = save_unique_youtube_video(anime_name, song_title, url)
+#             else:
+#                 print(f"No YouTube result found for: {query}")
+
+#             # Increment counter after the request
+#             config["YOUTUBE_API_CALL_COUNTER"] += 1
+#             with open("config.json", "w") as f:
+#                 json.dump(config, f, indent=2)
+
+#         except requests.RequestException as e:
+#             print(f"Request failed for {query}: {e}")
+

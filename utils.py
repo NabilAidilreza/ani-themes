@@ -10,11 +10,13 @@ from rich.spinner import Spinner
 from rich.panel import Panel
 from InquirerPy import prompt
 
+from rich.console import Console
+from rich.table import Table
+
 class ConfigManager:
     def __init__(self,path = "config.json"):
         # self.path = importlib.resources.files("ani_themes") / "config.json"
         self.path = path
-        self.load()
     def load(self):
         # config_path = importlib.resources.files("ani_themes") / "config.json"
         # with config_path.open("r", encoding="utf-8") as f:
@@ -26,6 +28,47 @@ class ConfigManager:
         with open(self.path, 'w') as f:
             json.dump(newdata, f, indent=2)
 
+class AnimeVideoManager:
+    def __init__(self, file_path):
+        """Initialize by loading data from a JSON file."""
+        self.file_path = file_path
+        with open(file_path, 'r', encoding='utf-8') as f:
+            self.data = json.load(f)
+
+    def sort_by_anime(self):
+        """Sorts the videos by anime name alphabetically."""
+        self.data['videos'] = sorted(self.data['videos'], key=lambda x: x['anime'])
+
+    def remove_duplicates(self):
+        """Removes duplicate entries from the videos list."""
+        seen = set()
+        unique_videos = []
+        for video in self.data['videos']:
+            identifier = (video['anime'], video['title'], video['url'])
+            if identifier not in seen:
+                seen.add(identifier)
+                unique_videos.append(video)
+        self.data['videos'] = unique_videos
+
+    def view_unique_anime_names(self):
+        """Returns a sorted list of all unique anime names."""
+        return sorted(set(video['anime'] for video in self.data['videos']))
+
+    def delete_by_anime_name(self, anime_name):
+        """Deletes all records with the given anime name."""
+        self.data['videos'] = [
+            video for video in self.data['videos'] if video['anime'] != anime_name
+        ]
+
+    def get_data(self):
+        """Returns the current state of the data."""
+        return self.data
+
+    def save(self, output_path=None):
+        """Saves current data back to file. If output_path is given, saves to that file."""
+        path = output_path if output_path else self.file_path
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(self.data, f, ensure_ascii=False, indent=4)
 FILEPATH = "progress.json"
 def read_progress(FILEPATH=FILEPATH):
     try:
@@ -72,7 +115,7 @@ def display_progress(FILEPATH=FILEPATH):
                     live.update(last_panel)  # re-show last known panel
                 break
 
-            sleep(0.25)
+            #sleep(0.25)
 
 def write_progress(info,FILEPATH=FILEPATH):
     dirpath = os.path.dirname(FILEPATH) or "."
@@ -117,26 +160,3 @@ def load_all_unique_titles():
         anime_titles.add(clean_title)
     unique_anime_list = sorted(list(anime_titles))
     return unique_anime_list
-
-
-def remove_duplicates(input_file, output_file):
-    with open(input_file, "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    seen = set()
-    unique = []
-
-    for entry in data["videos"]:
-        key = (entry["title"].strip().lower(), entry["url"].strip())
-        if key not in seen:
-            seen.add(key)
-            unique.append(entry)
-
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump({"videos": unique}, f, indent=4, ensure_ascii=False)
-
-    print(f"✅ Removed duplicates. {len(data['videos']) - len(unique)} duplicates found.")
-    print(f"📁 Output saved to: {output_file}")
-
-# # Example usage
-# remove_duplicates("saved_yt_links.json", "saved_yt_links_c.json")

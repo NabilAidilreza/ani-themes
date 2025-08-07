@@ -34,6 +34,7 @@ def get_random_title_themes(num = 5, page_span = 3):
             response = fetch_jikan(JIKAN_TOP, params)
             data = response.get("data", [])
             all_anime.extend(data)
+            sleep(1)
         except Exception as e:
             print(f"[!] Failed to fetch page {page}: {e}")
     # Filter for recent anime (from 2005 or newer)
@@ -45,25 +46,27 @@ def get_random_title_themes(num = 5, page_span = 3):
     name = random_title["titles"][0]["title"]
     id = random_title["mal_id"]
     # print("Selecting random openings...")
-    oped_data = fetch_jikan(JIKAN_THEMES.format(id=id), {})['data']
+    # Need to fix rate limit and handle null values
+    # YT API Counter not correct need fix
+    oped_data = fetch_jikan(JIKAN_THEMES.format(id=id), {})["data"]
     ops = oped_data.get("openings", [])
     eds = oped_data.get("endings", [])
     name = re.sub(r'[^\x00-\x7F]+', '', name)
     ops = [re.sub(r'\s*\(.*?\)\s*$', '', op).strip() for op in ops]
-    print(f"Anime: {name}")
+    # print(f"Anime: {name}")
     return [name, {"Openings": ops, "Endings": eds}]
 
-def get_multiple_random_themes(num_of_anime):
-    collected = {}
-    while len(collected) < num_of_anime:
-        name, themes = get_random_title_themes()
-        if name not in collected:
-            collected[name] = themes
-            print(f"✅ Added: {name}")
-        else:
-            print(f"⚠ Duplicate found: {name}, skipping...")
+# def get_multiple_random_themes(num_of_anime):
+#     collected = {}
+#     while len(collected) < num_of_anime:
+#         name, themes = get_random_title_themes()
+#         if name not in collected:
+#             collected[name] = themes
+#             print(f"✅ Added: {name}")
+#         else:
+#             print(f"⚠ Duplicate found: {name}, skipping...")
 
-    return collected
+#     return collected
 
 def get_animes_by_keyword(keyword, max_results=20):
     results = []

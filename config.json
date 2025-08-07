@@ -1,0 +1,71 @@
+{
+  "ANI-THEMES-WINDOW-PLACEMENT": "top_right",
+  "ANI-THEMES-HASJSON": "True",
+  "ANI-THEMES-API-SEARCH-COUNT": 5,
+  "ANI-THEMES-JSON-PLAYLIST-COUNT": 10,
+  "YOUTUBE_API_KEY": "",
+  "YOUTUBE_API_LIMIT_PER_DAY": 100,
+  "YOUTUBE_API_CALL_COUNTER": 7,
+  "LAST_API_RESET_DATE": "2025-08-07",
+  "CURRENT-PLAYLIST": [
+    [
+      "\u00bb Hataraku Maou-sama! \u306f\u305f\u3089\u304f\u9b54\u738b\u3055\u307e! OP / Opening \u300cZERO!!\u300d",
+      "Hataraku Maou-sama!"
+    ],
+    [
+      "MY FIRST STORY \u00d7 HYDE \u2013 \u201cMUGEN\u201d (from Anime \u201cDemon Slayer: Kimetsu no Yaiba\u201d) Official Music Video",
+      "Kimetsu no Yaiba"
+    ],
+    [
+      "Dr. STONE OP / Opening 2 - Creditless | 4K | 24FPS",
+      "Dr. Stone"
+    ],
+    [
+      "ZAQ\u300cDance In The Game\u300dLyric Video (TV\u30a2\u30cb\u30e1\u300e\u3088\u3046\u3053\u305d\u5b9f\u529b\u81f3\u4e0a\u4e3b\u7fa9\u306e\u6559\u5ba4\u3078 2nd Season\u300fOP\u30c6\u30fc\u30de)",
+      "Youkoso Jitsuryoku Shijou Shugi no Kyoushitsu e 2nd Season"
+    ],
+    [
+      "Out of Control",
+      "Psycho-Pass"
+    ],
+    [
+      "\u300cCreditless\u300dSword Art Online: Alicization OP / Opening 1\u300cUHD 60FPS\u300d",
+      "Sword Art Online: Alicization"
+    ],
+    [
+      "Made in Abyss Opening Full\u300eDeep in Abyss\u300f\u30e1\u30a4\u30c9\u30a4\u30f3\u30a2\u30d3\u30b9\u3010ENG Sub\u3011",
+      "Made in Abyss"
+    ],
+    [
+      "LiSA \u300e\u660e\u3051\u661f\u300f -MUSiC CLiP-\uff08\u30c6\u30ec\u30d3\u30a2\u30cb\u30e1\u300c\u9b3c\u6ec5\u306e\u5203\u300d\u7121\u9650\u5217\u8eca\u7de8 \u30aa\u30fc\u30d7\u30cb\u30f3\u30b0\u30c6\u30fc\u30de\uff09",
+      "Kimetsu no Yaiba: Mugen Ressha-hen"
+    ],
+    [
+      "\u300cCreditless\u300dMagi: The Labyrinth of Magic OP / Opening 2\u300cUHD 60FPS\u300d",
+      "Magi: The Labyrinth of Magic"
+    ],
+    [
+      "\u300cCreditless\u300dFullmetal Alchemist: Brotherhood OP / Opening 1\u300cUHD 60FPS\u300d",
+      "Fullmetal Alchemist: Brotherhood"
+    ]
+  ],
+  "CURRENT_INDEX": 0,
+  "BLACKLISTED": [
+    "Ao no Exorcist",
+    "Hunter x Hunter (2011)",
+    "Gintama",
+    "Ouran Koukou Host Club",
+    "Tokyo Ghoul",
+    "Baccano!",
+    "Yuri!!! on Ice",
+    "Nichijou",
+    "Akatsuki no Yona",
+    "Tokyo Ghoul:re",
+    "Banana Fish",
+    "Tengen Toppa Gurren Lagann",
+    "Shimoneta to Iu Gainen ga Sonzai Shinai Taikutsu na Sekai",
+    "Boruto: Naruto Next Generations",
+    "Mushishi",
+    "Saiki Kusuo no -nan"
+  ]
+}

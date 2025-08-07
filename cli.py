@@ -3,12 +3,14 @@ import json
 import random
 import pywintypes
 import win32file
+import psutil
 from time import sleep
 
 from utils import *
 from rich_console import *
 from jikan_client import get_animes_by_keyword,get_openings_from_list,get_random_title_themes
 from yt_client import get_yt_link
+
 
 config_manager = ConfigManager()
 config = config_manager.load()
@@ -79,7 +81,7 @@ def check_all_pipes_closed(verbose=True, return_details=False):
     return pipe_statuses if return_details else all_closed
 
 def shutdown_and_verify_pipes(max_retries=5, delay=2):
-    processing("\nWaiting for controller to exit and pipes to close...\n")
+    processing("Waiting for controller to exit and pipes to close...")
 
     for attempt in range(max_retries):
         statuses = check_all_pipes_closed(verbose=True, return_details=True)
@@ -135,20 +137,46 @@ def get_cached_link_if_missing(yt_link,opening):
             return next((v['url'] for v in parsed['videos'] if opening in v['title']), "")
     else:
         return yt_link
+    
+def is_player_ui_running(script_name="player_ui.py") -> bool:
+    """Check if player_ui.py is already running."""
+    for proc in psutil.process_iter(['cmdline']):
+        try:
+            cmdline = proc.info['cmdline']
+            if cmdline and script_name in ' '.join(cmdline):
+                return True
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+    return False
+
+def spawn_player_ui():
+    """Spawn player_ui.py in a new terminal if not already running."""
+    if not is_player_ui_running():
+        processing("Spawning playlist tracker...")
+        subprocess.Popen(
+            ["cmd", "/c", "start", "cmd", "/k", "python player_ui.py"],
+            shell=True
+        )
+
+def kill_player_ui_by_name(script_name="player_ui.py"):
+    """Kill all processes running player_ui.py."""
+    for proc in psutil.process_iter(['pid', 'cmdline']):
+        try:
+            if proc.info['cmdline'] and script_name in ' '.join(proc.info['cmdline']):
+                print(f"Killing: {proc.pid} {proc.info['cmdline']}")
+                proc.kill()
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+
 def playlist_mode(mpv_handle = None, controller_handle = None):
-    ### Send Start Signal ###
     if mpv_handle is None or controller_handle is None:
         mpv_handle, controller_handle = ensure_controller_running()
     send_command(controller_handle, {
         "command": "loadplaylist",
         "data": {"has_json": LOCAL_MODE}
     })
-    user("+--------------------------------+")
-    user("| 🎵 Loading playlist...         |")
-    user("| This may take a while...       |")
-    user("| Upon completion, auto restart  |")
-    user("| This may take a few seconds... |")
-    user("+--------------------------------+")
+
+    music("Loading playlist...")
     ### Loading Portion ###
     progress_info = {
         "status": "Initializing...",
@@ -162,21 +190,16 @@ def playlist_mode(mpv_handle = None, controller_handle = None):
         options = ["Next","Replay","Previous","View Current Playlist", "Exit"]
         user_input = multi_prompt(options,"ani-themes")
         if user_input == "Next":
-            user("If it’s taking a bit, the player might be refreshing the playlist...")
             send_command(controller_handle, {"command": "next"})
         elif user_input == "Replay":
             send_command(controller_handle, {"command": "replay"})
         elif user_input == "Previous":
             send_command(controller_handle, {"command": "prev"})
         elif user_input == "View Current Playlist":
-            config_manager = ConfigManager()
-            config = config_manager.load()
-            curr_playlist = config['CURRENT-PLAYLIST']
-            curr_index = config['CURRENT_INDEX'] 
-            curr_playlist.append("Back")
-            view_playlist = multi_prompt(curr_playlist,"ani-themes",curr_index)
+            spawn_player_ui()
         elif user_input == "Exit":
             send_command(controller_handle, {"command": "quit"})
+            kill_player_ui_by_name()
             break
 def search_mode(mpv_handle = None, controller_handle = None,enterFlag = False):
     anime_keyword = input("Search anime: ")
@@ -262,8 +285,13 @@ def random_mode(mpv_handle = None, controller_handle = None):
     })
 def edit_config():
     config_manager = ConfigManager()
-    user_input = multi_prompt(["Change MPV Placement","Set API Key","Check API Stats","Blacklist Menu","Exit"],"Configs")
-    if user_input == "Change MPV Placement":
+    user_input = multi_prompt(["Toggle Local Mode","Change MPV Placement","Set API Key","Check API Stats","Blacklist Menu","Manage Cached Links","Exit"],"Settings")
+    if user_input == "Toggle Local Mode":
+        config = config_manager.load()
+        options = multi_prompt(['Yes','No'],"Use locally? (Use cached links / no api calls)")
+        config["ANI-THEMES-HASJSON"] = "True" if options == "Yes" else "False"
+        config_manager.save(config)
+    elif user_input == "Change MPV Placement":
         config = config_manager.load()
         curr_win_plac = config["ANI-THEMES-WINDOW-PLACEMENT"]
         change_window = multi_prompt(['top_left','top_right','bottom_left','bottom_right','center'],f"Current Placement: {curr_win_plac}")
@@ -308,5 +336,27 @@ def edit_config():
                     curr_blacklist.append(user_input)
                     config["BLACKLISTED"] = curr_blacklist
                     config_manager.save(config)
+            else:
+                break
+    elif user_input == "Manage Cached Links":
+        manager = AnimeVideoManager("saved_yt_links.json")
+        manager.remove_duplicates()
+        manager.sort_by_anime()
+        manager.save()
+        while True:
+            user_input = multi_prompt(["View All Unique Anime Series","Remove Anime Series","Back"],"Menu")
+            if user_input == "View All Unique Anime Series":
+                anime_name = multi_prompt(manager.view_unique_anime_names(),"Animes")
+            elif user_input == "Remove Anime Series":
+                num = question("How many series? (default is 1): ")
+                if num == "" or num.isnumeric() == False:
+                    num = 1
+                num = int(num)
+                while num > 0:
+                    anime_name = multi_prompt(manager.view_unique_anime_names(),"Animes")
+                    manager.delete_by_anime_name(anime_name)
+                    manager.save()
+                    num -= 1
+
             else:
                 break

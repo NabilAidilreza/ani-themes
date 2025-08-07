@@ -8,7 +8,7 @@ from datetime import time as tm
 
 # import importlib.resources
 
-from utils import ConfigManager, multi_prompt
+from utils import ConfigManager, multi_prompt, AnimeVideoManager
 from rich_console import *
 from cli import search_mode,playlist_mode,random_mode,edit_config,shutdown_and_verify_pipes
 
@@ -38,7 +38,7 @@ def setup_environment():
     "ANI-THEMES-WINDOW-PLACEMENT": "top_right",
     "ANI-THEMES-HASJSON": "True",
     "ANI-THEMES-API-SEARCH-COUNT": 3,
-    "ANI-THEMES-JSON-PLAYLIST-COUNT": 20,
+    "ANI-THEMES-JSON-PLAYLIST-COUNT": 10,
     "YOUTUBE_API_KEY": "INSERT KEY HERE",
     "YOUTUBE_API_LIMIT_PER_DAY": 100,
     "YOUTUBE_API_CALL_COUNTER": 5,
@@ -49,6 +49,8 @@ def setup_environment():
     }
     config_manager = ConfigManager()
     config = ensure_config_file("config.json",config_template)
+    config["CURRENT_INDEX"] = 0
+    config_manager.save(config)
     ensure_json_file("saved_yt_links.json", {"videos": []})
     ensure_json_file("progress.json", {})
 
@@ -65,6 +67,15 @@ def setup_environment():
         config["LAST_API_RESET_DATE"] = today_str
         config_manager.save(config)
 
+def display_banner():
+    banner = """
+════════════ 🎵 ANI-THEMES 🎵 ════════════
+           Anime Theme Player    
+          ─────────────────────
+          ♫ By CamkoalatiXD ♫    
+    """
+    print(banner)
+
 #! Main Loop #
 def main():
     setup_environment()
@@ -80,14 +91,15 @@ def main():
 
     try:
         if len(sys.argv) == 1:
-            options = ["Search Anime Opening", "Player","Config"]
+            #display_banner()
+            options = ["Search Anime Opening", "Player","Settings"]
             user_input = multi_prompt(options,"ani-themes")
             if user_input:
                 if user_input == "Search Anime Opening":
                     search_mode()
                 elif user_input == "Player":
                     playlist_mode()
-                elif user_input == "Config":
+                elif user_input == "Settings":
                     edit_config()
                     main()
         if args.p:

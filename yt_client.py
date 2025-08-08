@@ -3,9 +3,10 @@ import json
 import requests
 from utils import ConfigManager,write_progress
 
+
 def save_unique_youtube_video(anime_name, title, url, filename="saved_yt_links.json"):
     if os.path.exists(filename):
-        with open(filename, "r",encoding="utf-8") as f:
+        with open(filename, "r", encoding="utf-8") as f:
             try:
                 data = json.load(f)
                 videos = data.get("videos", [])
@@ -14,15 +15,24 @@ def save_unique_youtube_video(anime_name, title, url, filename="saved_yt_links.j
     else:
         videos = []
 
-    # Check if URL already exists
-    existing_urls = {video["url"] for video in videos}
-    if url not in existing_urls:
-        videos.append({"anime":anime_name,"title": title, "url": url})
-        with open(filename, "w",encoding='utf-8') as f:
-            json.dump({"videos": videos}, f, indent=4, ensure_ascii=False)
-        return "[Saved]"
-    else:
-        return "[Previously Saved]"
+    # Build quick lookup maps
+    title_to_url = {video["title"]: video["url"] for video in videos}
+    url_set = {video["url"] for video in videos}
+
+    # If title already exists, do not overwrite
+    if title in title_to_url:
+        return "[Previously Saved - Title exists]"
+
+    # If URL already exists under another title, also ignore
+    if url in url_set:
+        return "[Previously Saved - URL exists]"
+
+    # Save new entry
+    videos.append({"anime": anime_name, "title": title, "url": url})
+    with open(filename, "w", encoding='utf-8') as f:
+        json.dump({"videos": videos}, f, indent=4, ensure_ascii=False)
+
+    return "[Saved]"
     
 def get_yt_link(anime_name,title,api_key,yt_search_url): 
     config_manager = ConfigManager()
@@ -53,7 +63,7 @@ def get_yt_link(anime_name,title,api_key,yt_search_url):
             "song_link": url
         }
         write_progress(progress_info)
-        save_msg = save_unique_youtube_video(anime_name,song_title,url)
+        save_msg = save_unique_youtube_video(anime_name,title,url)
         return url,song_title,save_msg
     else:
         print(f"No YouTube result found for: {query}")

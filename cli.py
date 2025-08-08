@@ -11,14 +11,11 @@ from rich_console import *
 from jikan_client import get_animes_by_keyword,get_openings_from_list,get_random_title_themes
 from yt_client import get_yt_link
 
-
-config_manager = ConfigManager()
-config = config_manager.load()
+# config = config_manager.load()
 
 #! Youtube Variables #
-YOUTUBE_API_KEY = config['YOUTUBE_API_KEY']
 YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
-LOCAL_MODE = config["ANI-THEMES-HASJSON"]
+# YOUTUBE_API_KEY = config['YOUTUBE_API_KEY']
 
 #! Pipe Functions #
 def send_command(handle, cmd):
@@ -130,13 +127,15 @@ def ensure_controller_running():
             sys.exit(1)
     return mpv_handle, controller_handle
 
-def get_cached_link_if_missing(yt_link,opening):
-    if yt_link == "" and os.path.exists("saved_yt_links.json"):
+def get_cached_link(search_value, match_field="title"):
+    """Return (url, title) from cache if found, else (None, None)."""
+    if os.path.exists("saved_yt_links.json"):
         with open("saved_yt_links.json", "r", encoding="utf-8") as f:
             parsed = json.load(f)
-            return next((v['url'] for v in parsed['videos'] if opening in v['title']), "")
-    else:
-        return yt_link
+            for v in parsed.get('videos', []):
+                if search_value in v.get(match_field, ""):
+                    return v.get("url"), v.get("title")
+    return None, None
     
 def is_player_ui_running(script_name="player_ui.py") -> bool:
     """Check if player_ui.py is already running."""
@@ -171,6 +170,8 @@ def kill_player_ui_by_name(script_name="player_ui.py"):
 def playlist_mode(mpv_handle = None, controller_handle = None):
     if mpv_handle is None or controller_handle is None:
         mpv_handle, controller_handle = ensure_controller_running()
+    config = ConfigManager().load()
+    LOCAL_MODE = config["ANI-THEMES-HASJSON"]
     send_command(controller_handle, {
         "command": "loadplaylist",
         "data": {"has_json": LOCAL_MODE}
@@ -202,6 +203,8 @@ def playlist_mode(mpv_handle = None, controller_handle = None):
             kill_player_ui_by_name()
             break
 def search_mode(mpv_handle = None, controller_handle = None,enterFlag = False):
+    config_manager = ConfigManager()
+    YOUTUBE_API_KEY = config_manager.load()['YOUTUBE_API_KEY']
     anime_keyword = input("Search anime: ")
     if anime_keyword:
         results = run_with_animation(
@@ -221,8 +224,12 @@ def search_mode(mpv_handle = None, controller_handle = None,enterFlag = False):
             music("Available Songs",status="Loaded")
         opening = (multi_prompt(cleaned_openings, "Openings")
                 if len(cleaned_openings) > 1 else cleaned_openings[0])
-        yt_link,song_title,save_msg = get_yt_link(which_anime, opening, YOUTUBE_API_KEY, YOUTUBE_SEARCH_URL)
-        yt_link = get_cached_link_if_missing(yt_link,opening)
+        cached_link, song_title = get_cached_link(opening)
+        if cached_link:
+            yt_link = cached_link
+            save_msg = "[Using Cached Link]"
+        else:
+            yt_link,song_title,save_msg = get_yt_link(which_anime, opening, YOUTUBE_API_KEY, YOUTUBE_SEARCH_URL)
         if mpv_handle is None or controller_handle is None:
             mpv_handle, controller_handle = ensure_controller_running()
         if enterFlag == False:
@@ -237,8 +244,8 @@ def search_mode(mpv_handle = None, controller_handle = None,enterFlag = False):
                 "data": {"url": yt_link}
             })
             music(song_title,context=save_msg,status="Added to Queue")
-        mpv_player(which_anime, anime, openings, yt_link,mpv_handle,controller_handle)
-def mpv_player(anime_title,animes,openings,yt_link,mpv_handle,controller_handle):
+        mpv_player(which_anime, anime, openings, yt_link,mpv_handle,controller_handle,YOUTUBE_API_KEY)
+def mpv_player(anime_title,animes,openings,yt_link,mpv_handle,controller_handle,YOUTUBE_API_KEY):
     main_title = get_main_title(anime_title)
     while True:
         user_input = multi_prompt([f"{main_title} OPs", "Replay","Look Up Another Anime", "Exit"], "ani-themes")
@@ -251,8 +258,12 @@ def mpv_player(anime_title,animes,openings,yt_link,mpv_handle,controller_handle)
             ]
             opening = multi_prompt(s_ops,f"{main_title}")
             play_or_queue = multi_prompt(['Play','Add to queue','Back'],"Song Options")
-            yt_link,song_title,save_msg = get_yt_link(anime_title,opening,YOUTUBE_API_KEY,YOUTUBE_SEARCH_URL)
-            yt_link = get_cached_link_if_missing(yt_link,opening)
+            cached_link, song_title = get_cached_link(opening)
+            if cached_link:
+                yt_link = cached_link
+                save_msg = "[Using Cached Link]"
+            else:
+                yt_link,song_title,save_msg = get_yt_link(anime_title, opening, YOUTUBE_API_KEY, YOUTUBE_SEARCH_URL)
             if play_or_queue == 'Play':
                 music(song_title,context=save_msg,status="Now Playing")
                 send_command(controller_handle, {"command": "loadsingle", "data": {"url": yt_link}})
@@ -273,12 +284,18 @@ def mpv_player(anime_title,animes,openings,yt_link,mpv_handle,controller_handle)
 def random_mode(mpv_handle = None, controller_handle = None):
     if mpv_handle is None or controller_handle is None:
         mpv_handle, controller_handle = ensure_controller_running()
+    config_manager = ConfigManager()
+    YOUTUBE_API_KEY = config_manager.load()['YOUTUBE_API_KEY']
     anime_data = get_random_title_themes()
     anime_title = anime_data[0]
     openings = anime_data[1]["Openings"]
     opening = random.choice(openings)
-    yt_link,song_title,save_msg = get_yt_link(anime_title,opening,YOUTUBE_API_KEY,YOUTUBE_SEARCH_URL)
-    yt_link = get_cached_link_if_missing(yt_link,opening)
+    cached_link, song_title = get_cached_link(opening)
+    if cached_link:
+        yt_link = cached_link
+        save_msg = "[Using Cached Link]"
+    else:
+        yt_link,song_title,save_msg = get_yt_link(anime_title, opening, YOUTUBE_API_KEY, YOUTUBE_SEARCH_URL)
     send_command(controller_handle, {
         "command": "loadsingle",
         "data": {"url": yt_link}

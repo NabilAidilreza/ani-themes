@@ -53,20 +53,7 @@ def get_random_title_themes(num = 5, page_span = 3):
     eds = oped_data.get("endings", [])
     name = re.sub(r'[^\x00-\x7F]+', '', name)
     ops = [re.sub(r'\s*\(.*?\)\s*$', '', op).strip() for op in ops]
-    # print(f"Anime: {name}")
     return [name, {"Openings": ops, "Endings": eds}]
-
-# def get_multiple_random_themes(num_of_anime):
-#     collected = {}
-#     while len(collected) < num_of_anime:
-#         name, themes = get_random_title_themes()
-#         if name not in collected:
-#             collected[name] = themes
-#             print(f"✅ Added: {name}")
-#         else:
-#             print(f"⚠ Duplicate found: {name}, skipping...")
-
-#     return collected
 
 def get_animes_by_keyword(keyword, max_results=20):
     results = []

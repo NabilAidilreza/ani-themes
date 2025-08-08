@@ -1,7 +1,7 @@
 import random
 from utils import ConfigManager,write_progress
 from jikan_client import get_random_title_themes
-from yt_client import get_yt_link#,get_yt_links
+from yt_client import get_yt_link
 
 config_manager = ConfigManager()
 config = config_manager.load()
@@ -11,10 +11,6 @@ YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
 ANI_THEMES_API_SEARCH_COUNT = config['ANI-THEMES-API-SEARCH-COUNT']
 ANI_THEMES_JSON_PLAYLIST_COUNT = config['ANI-THEMES-JSON-PLAYLIST-COUNT']
 BLACKLIST = config['BLACKLISTED']
-
-# def fetch_more_songs():
-#     jikan_data = get_random_title_themes()
-#     get_yt_links(jikan_data,YOUTUBE_API_KEY,YOUTUBE_SEARCH_URL)
 
 def create_playlist_from_json(filename='saved_yt_links.json', count=ANI_THEMES_JSON_PLAYLIST_COUNT):
     try:

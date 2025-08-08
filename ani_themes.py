@@ -1,14 +1,13 @@
 import os,sys
 import json
 import argparse
-import win32file
 from time import sleep
 from datetime import datetime,timedelta
 from datetime import time as tm
 
 # import importlib.resources
 
-from utils import ConfigManager, multi_prompt, AnimeVideoManager
+from utils import ConfigManager, multi_prompt
 from rich_console import *
 from cli import search_mode,playlist_mode,random_mode,edit_config,shutdown_and_verify_pipes
 

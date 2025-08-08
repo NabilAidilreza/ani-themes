@@ -83,7 +83,7 @@ def display_progress(FILEPATH=FILEPATH):
     spinner = Spinner("dots")
     last_panel = None
 
-    with Live(refresh_per_second=10, transient=True) as live:
+    with Live(refresh_per_second=6, transient=True) as live:
         while True:
             if os.path.exists(FILEPATH):
                 mtime = os.path.getmtime(FILEPATH)
@@ -142,7 +142,6 @@ def multi_prompt(options,msg,current=-1):
     current_highlight = options[current]
     for idx, opt in enumerate(options):
         if idx == current and current != -1:
-            # Add an emoji or marker to highlight
             options.insert(current,"🔥 " + current_highlight)
     prompt_option = prompt({"message": f"{msg}: ",
         "type": "fuzzy",

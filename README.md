@@ -1,6 +1,5 @@
 # 🎵 ani-themes  
 A CLI tool to play anime openings using JIKAN & YT API via `mpv`, and other dependencies.
-Working on library version...
 
 ## 📦 Features
 

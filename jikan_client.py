@@ -2,6 +2,9 @@ import re
 import requests
 import random
 from time import sleep
+import httpx
+import asyncio
+
 
 def fetch_jikan(api,params):
     try:
@@ -55,29 +58,54 @@ def get_random_title_themes(num = 5, page_span = 3):
     ops = [re.sub(r'\s*\(.*?\)\s*$', '', op).strip() for op in ops]
     return [name, {"Openings": ops, "Endings": eds}]
 
-def get_animes_by_keyword(keyword, max_results=20):
-    results = []
-    seen_ids = set()
+async def fetch_jikan_async(client, params):
+    try:
+        resp = await client.get("https://api.jikan.moe/v4/anime", params=params)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception:
+        return None
     
-    # Add 'limit' and better query
-    for anime_type in ["tv", "movie"]:
-        params = {
-            "q": keyword,
-            "type": anime_type,
-            "limit": max_results,  # Jikan supports this
-            "order_by": "popularity",  # or "score", "favorites"
-            "sort": "asc"  # or "desc"
-        }
-        response = fetch_jikan("https://api.jikan.moe/v4/anime", params)
-        if not response or 'data' not in response:
-            continue
-        for d in response['data']:
-            if d['mal_id'] not in seen_ids:
-                results.append([d['mal_id'], d["title"]])
-                seen_ids.add(d['mal_id'])
-                if len(results) >= max_results:
-                    return results  # Return early if enough
+async def get_animes_by_keyword(keyword, max_results=10):
+    seen_ids = set()
+    params_list = [
+        {"q": keyword, "type": t, "limit": max_results, "fields": "mal_id,title", "order_by": "popularity", "sort": "asc"}
+        for t in ("tv", "movie")
+    ]
+
+    async with httpx.AsyncClient() as client:
+        results = []
+        for d in (item for resp in await asyncio.gather(*(fetch_jikan_async(client, p) for p in params_list))
+                  for item in resp.get("data", []) if item["mal_id"] not in seen_ids):
+            results.append([d["mal_id"], d["title"]])
+            seen_ids.add(d["mal_id"])
+            if len(results) >= max_results:
+                break
     return results
+
+# def get_animes_by_keyword(keyword, max_results=20):
+#     results = []
+#     seen_ids = set()
+    
+#     # Add 'limit' and better query
+#     for anime_type in ["tv", "movie"]:
+#         params = {
+#             "q": keyword,
+#             "type": anime_type,
+#             "limit": max_results,  # Jikan supports this
+#             "order_by": "popularity",  # or "score", "favorites"
+#             "sort": "asc"  # or "desc"
+#         }
+#         response = fetch_jikan("https://api.jikan.moe/v4/anime", params)
+#         if not response or 'data' not in response:
+#             continue
+#         for d in response['data']:
+#             if d['mal_id'] not in seen_ids:
+#                 results.append([d['mal_id'], d["title"]])
+#                 seen_ids.add(d['mal_id'])
+#                 if len(results) >= max_results:
+#                     return results  # Return early if enough
+#     return results
 
 def get_openings_from_list(array):
     result = []

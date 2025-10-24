@@ -1,5 +1,6 @@
 import os,sys,subprocess
 import json
+import asyncio
 import random
 import pywintypes
 import win32file
@@ -11,17 +12,18 @@ from rich_console import *
 from jikan_client import get_animes_by_keyword,get_openings_from_list,get_random_title_themes
 from yt_client import get_yt_link
 
-# config = config_manager.load()
-
 #! Youtube Variables #
 YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
-# YOUTUBE_API_KEY = config['YOUTUBE_API_KEY']
+config = ConfigManager().load()
+debug_switch = config["DEBUG"]
 
 #! Pipe Functions #
 def send_command(handle, cmd):
+    global debug_switch
     data = json.dumps(cmd) + "\n"
     win32file.WriteFile(handle, data.encode('utf-8'))
-    dataout(f"Sent command to {handle}: {cmd}")
+    if debug_switch != "False":
+        dataout(f"Sent command to {handle}: {cmd}")
 
 def connect_to_pipe(pipe_name):
     try:
@@ -129,8 +131,8 @@ def ensure_controller_running():
 
 def get_cached_link(search_value, match_field="title"):
     """Return (url, title) from cache if found, else (None, None)."""
-    if os.path.exists("saved_yt_links.json"):
-        with open("saved_yt_links.json", "r", encoding="utf-8") as f:
+    if os.path.exists("resources/saved_yt_links.json"):
+        with open("resources/saved_yt_links.json", "r", encoding="utf-8") as f:
             parsed = json.load(f)
             for v in parsed.get('videos', []):
                 if search_value in v.get(match_field, ""):
@@ -205,65 +207,81 @@ def playlist_mode(mpv_handle = None, controller_handle = None):
 def search_mode(mpv_handle = None, controller_handle = None,enterFlag = False):
     config_manager = ConfigManager()
     YOUTUBE_API_KEY = config_manager.load()['YOUTUBE_API_KEY']
-    anime_keyword = input("Search anime: ")
+    anime_keyword = question("Search anime: ")
     if anime_keyword:
         results = run_with_animation(
-            lambda: get_openings_from_list(get_animes_by_keyword(anime_keyword)),
+            lambda: get_openings_from_list(asyncio.run(get_animes_by_keyword(anime_keyword))),
             text="Fetching data",
             text_type="datain"
         )
         anime = [r[0] for r in results]
         openings = [r[1]["Openings"] for r in results]
-        which_anime = multi_prompt(anime, "Anime Search")
+        endings =  [r[1]["Endings"] for r in results]
+        which_anime = multi_prompt(anime, "Anime available")
         chosen = anime.index(which_anime)
-        cleaned_openings = [o.replace('"', '') for o in openings[chosen]]
-        if len(cleaned_openings) == 0:
+
+        # cleaned_openings = [o.replace('"', '') for o in openings[chosen]]
+        # cleaned_endings = [o.replace('"', '') for o in endings[chosen]]
+
+        cleaned_openings, cleaned_endings = (
+            [o.replace('"', '') for o in seq] 
+            for seq in (openings[chosen], endings[chosen])
+        )
+        cleaned_all = cleaned_openings + cleaned_endings
+
+        if len(cleaned_all) == 0:
             fatal("No songs available!")
             return search_mode()
         else:
             music("Available Songs",status="Loaded")
-        opening = (multi_prompt(cleaned_openings, "Openings")
-                if len(cleaned_openings) > 1 else cleaned_openings[0])
+        opening = (multi_prompt(cleaned_all, "OPs|EDs")
+                if len(cleaned_all) > 1 else cleaned_all[0])
         cached_link, song_title = get_cached_link(opening)
         if cached_link:
             yt_link = cached_link
             save_msg = "[Using Cached Link]"
         else:
             yt_link,song_title,save_msg = get_yt_link(which_anime, opening, YOUTUBE_API_KEY, YOUTUBE_SEARCH_URL)
-        if mpv_handle is None or controller_handle is None:
-            mpv_handle, controller_handle = ensure_controller_running()
-        if enterFlag == False:
-            send_command(controller_handle, {
-                "command": "loadsingle",
-                "data": {"url": yt_link}
-            })
-            music(song_title,context=save_msg,status="Now Playing")
-        else:
-            send_command(controller_handle, {
-                "command": "loadsingle_queue",
-                "data": {"url": yt_link}
-            })
-            music(song_title,context=save_msg,status="Added to Queue")
-        mpv_player(which_anime, anime, openings, yt_link,mpv_handle,controller_handle,YOUTUBE_API_KEY)
-def mpv_player(anime_title,animes,openings,yt_link,mpv_handle,controller_handle,YOUTUBE_API_KEY):
+        if yt_link:
+            add_search(which_anime + ": " + opening)
+            if mpv_handle is None or controller_handle is None:
+                mpv_handle, controller_handle = ensure_controller_running()
+            if not enterFlag:
+                send_command(controller_handle, {
+                    "command": "loadsingle",
+                    "data": {"url": yt_link}
+                })
+                music(song_title,context=save_msg,status="Now Playing")
+            else:
+                send_command(controller_handle, {
+                    "command": "loadsingle_queue",
+                    "data": {"url": yt_link}
+                })
+                music(song_title,context=save_msg,status="Added to Queue")
+        mpv_player(which_anime, anime, openings,endings, yt_link,mpv_handle,controller_handle,YOUTUBE_API_KEY)
+def mpv_player(anime_title,animes,openings,endings, yt_link,mpv_handle,controller_handle,YOUTUBE_API_KEY):
     main_title = get_main_title(anime_title)
     while True:
-        user_input = multi_prompt([f"{main_title} OPs", "Replay","Look Up Another Anime", "Exit"], "ani-themes")
-        if user_input == f"{main_title} OPs":
-            s_ops = [
+        user_input = multi_prompt([f"{main_title} OPs",f"{main_title} EDs", "Replay","Look Up Another Anime", "Exit"], "ani-themes")
+        if main_title in user_input:
+            check_which_type = user_input.split(" ")[-1]
+            source_list = openings if check_which_type == "OPs" else endings
+            source_songs = [
                 o.replace('"', '')
                 for i, anime in enumerate(animes)
                 if main_title in anime
-                for o in openings[i]
+                for o in source_list[i]
             ]
-            opening = multi_prompt(s_ops,f"{main_title}")
+            source_songs.append("Back")
+            selected_song = multi_prompt(source_songs,f"{main_title}")
+            if selected_song == "Back": continue
             play_or_queue = multi_prompt(['Play','Add to queue','Back'],"Song Options")
-            cached_link, song_title = get_cached_link(opening)
+            cached_link, song_title = get_cached_link(selected_song)
             if cached_link:
                 yt_link = cached_link
                 save_msg = "[Using Cached Link]"
             else:
-                yt_link,song_title,save_msg = get_yt_link(anime_title, opening, YOUTUBE_API_KEY, YOUTUBE_SEARCH_URL)
+                yt_link,song_title,save_msg = get_yt_link(anime_title, selected_song, YOUTUBE_API_KEY, YOUTUBE_SEARCH_URL)
             if play_or_queue == 'Play':
                 music(song_title,context=save_msg,status="Now Playing")
                 send_command(controller_handle, {"command": "loadsingle", "data": {"url": yt_link}})
@@ -356,7 +374,7 @@ def edit_config():
             else:
                 break
     elif user_input == "Manage Cached Links":
-        manager = AnimeVideoManager("saved_yt_links.json")
+        manager = AnimeVideoManager("resources/saved_yt_links.json")
         manager.remove_duplicates()
         manager.sort_by_anime()
         manager.save()

@@ -1,3 +1,4 @@
+import re
 import random
 from utils import ConfigManager,write_progress
 from jikan_client import get_random_title_themes
@@ -12,7 +13,10 @@ ANI_THEMES_API_SEARCH_COUNT = config['ANI-THEMES-API-SEARCH-COUNT']
 ANI_THEMES_JSON_PLAYLIST_COUNT = config['ANI-THEMES-JSON-PLAYLIST-COUNT']
 BLACKLIST = config['BLACKLISTED']
 
-def create_playlist_from_json(filename='saved_yt_links.json', count=ANI_THEMES_JSON_PLAYLIST_COUNT):
+def remove_number_prefix(text):
+    return re.sub(r'^\d+:\s*', '', text, flags=re.MULTILINE)
+
+def create_playlist_from_json(filename='resources/saved_yt_links.json', count=ANI_THEMES_JSON_PLAYLIST_COUNT):
     try:
         data_manager = ConfigManager(filename)
         data = data_manager.load()
@@ -54,9 +58,10 @@ def create_playlist_from_api(api_key, yt_search_url, count=ANI_THEMES_API_SEARCH
             collected.add(name)
             print(f"✅ Anime: {name}")
             for opening_title in themes["Openings"]:
+                opening_title = remove_number_prefix(opening_title)
                 title = opening_title + f" [{name}]"
                 print(f"    Added: {title}")
-                titles.append(tuple(opening_title,name))
+                titles.append([opening_title,name])
                 yt_link,song_title,save_msg = get_yt_link(name, opening_title, api_key, yt_search_url)
                 if yt_link:
                     links.append(yt_link)

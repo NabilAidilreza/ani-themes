@@ -2,9 +2,10 @@ import os
 import json
 import requests
 from utils import ConfigManager,write_progress
+from rich_console import failure
 
 
-def save_unique_youtube_video(anime_name, title, url, filename="saved_yt_links.json"):
+def save_unique_youtube_video(anime_name, title, url, filename="resources/saved_yt_links.json"):
     if os.path.exists(filename):
         with open(filename, "r", encoding="utf-8") as f:
             try:
@@ -48,7 +49,7 @@ def get_yt_link(anime_name,title,api_key,yt_search_url):
         'maxResults': 1
     }
     config["YOUTUBE_API_CALL_COUNTER"] += 1
-    with open("config.json", "w") as f:
+    with open("resources/config.json", "w") as f:
         json.dump(config, f, indent=2)
 
     yt_response = requests.get(yt_search_url, params=params).json()
@@ -66,7 +67,7 @@ def get_yt_link(anime_name,title,api_key,yt_search_url):
         save_msg = save_unique_youtube_video(anime_name,title,url)
         return url,song_title,save_msg
     else:
-        print(f"No YouTube result found for: {query}")
+        failure(f"No YouTube result found for: {query}")
         return "","",""
 
 # def get_yt_links(jikan_data, api_key, yt_search_url):
@@ -100,7 +101,7 @@ def get_yt_link(anime_name,title,api_key,yt_search_url):
 
 #             # Increment counter after the request
 #             config["YOUTUBE_API_CALL_COUNTER"] += 1
-#             with open("config.json", "w") as f:
+#             with open("resources/config.json", "w") as f:
 #                 json.dump(config, f, indent=2)
 
 #         except requests.RequestException as e:

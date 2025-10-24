@@ -1,7 +1,6 @@
 import os
 import re
 import json
-# import importlib.resources
 import tempfile
 from time import sleep,time
 from rich.live import Live
@@ -9,12 +8,12 @@ from rich.console import Group
 from rich.spinner import Spinner
 from rich.panel import Panel
 from InquirerPy import prompt
+from pathlib import Path
+from datetime import datetime
 
-from rich.console import Console
-from rich.table import Table
 
 class ConfigManager:
-    def __init__(self,path = "config.json"):
+    def __init__(self,path = "resources/config.json"):
         # self.path = importlib.resources.files("ani_themes") / "config.json"
         self.path = path
     def load(self):
@@ -69,7 +68,7 @@ class AnimeVideoManager:
         path = output_path if output_path else self.file_path
         with open(path, 'w', encoding='utf-8') as f:
             json.dump(self.data, f, ensure_ascii=False, indent=4)
-FILEPATH = "progress.json"
+FILEPATH = "resources/progress.json"
 def read_progress(FILEPATH=FILEPATH):
     try:
         with open(FILEPATH, "r",encoding="utf-8") as f:
@@ -150,7 +149,7 @@ def multi_prompt(options,msg,current=-1):
     return prompt_option[0]
 
 def load_all_unique_titles():
-    data_manager = ConfigManager('saved_yt_links.json')
+    data_manager = ConfigManager('resources/saved_yt_links.json')
     data = data_manager.load()
     anime_titles = set()
     for video in data['videos']:
@@ -159,3 +158,59 @@ def load_all_unique_titles():
         anime_titles.add(clean_title)
     unique_anime_list = sorted(list(anime_titles))
     return unique_anime_list
+
+
+
+### Recent search ###
+def add_search(title: str):
+    """Add a search title with timestamp to resources/userdata.json.
+    Creates file if missing. Keeps only the latest 5 entries.
+    """
+    resources_dir = Path("resources")
+    resources_dir.mkdir(exist_ok=True)  # make sure folder exists
+    file_path = resources_dir / "userdata.json"
+
+    # Load existing data or start fresh
+    if file_path.exists():
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                searches = json.load(f)
+                if not isinstance(searches, list):  # corrupt or wrong format
+                    searches = []
+        except json.JSONDecodeError:
+            searches = []
+    else:
+        searches = []
+
+    # Remove duplicate if exists
+    searches = [s for s in searches if s.get("title") != title]
+
+    # Add new entry
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    searches.append({"title": title, "date": now})
+
+    # Keep only latest 5
+    searches = searches[-5:]
+
+    # Save back (creates file if missing)
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(searches, f, indent=4, ensure_ascii=False)
+
+def get_recent_searches():
+    """Fetch recent searches from resources/userdata.json.
+    Returns a list of dicts with keys: title, date.
+    """
+    file_path = Path("resources") / "userdata.json"
+
+    if not file_path.exists():
+        return []  # No file yet → return empty list
+
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            searches = json.load(f)
+            if isinstance(searches, list):
+                return searches
+            else:
+                return []
+    except json.JSONDecodeError:
+        return []

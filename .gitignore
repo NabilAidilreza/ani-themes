@@ -1,0 +1,10 @@
+# Ignore all JSON files
+*.json
+
+# Ignore Python cache directories
+__pycache__/
+*/__pycache__/
+
+# Optional: If you want to keep specific JSON files, whitelist them like this:
+# !config/important.json
+# !data/sample.json

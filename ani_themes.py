@@ -5,9 +5,7 @@ from time import sleep
 from datetime import datetime,timedelta
 from datetime import time as tm
 
-# import importlib.resources
-
-from utils import ConfigManager, multi_prompt
+from utils import ConfigManager, multi_prompt, get_recent_searches
 from rich_console import *
 from cli import search_mode,playlist_mode,random_mode,edit_config,shutdown_and_verify_pipes
 
@@ -42,16 +40,17 @@ def setup_environment():
     "YOUTUBE_API_LIMIT_PER_DAY": 100,
     "YOUTUBE_API_CALL_COUNTER": 5,
     "LAST_API_RESET_DATE": "2025-07-30",
+    "DEBUG": "False",
     "CURRENT-PLAYLIST": [],
     "CURRENT_INDEX": 0,
     "BLACKLISTED": []
     }
     config_manager = ConfigManager()
-    config = ensure_config_file("config.json",config_template)
+    config = ensure_config_file("resources/config.json",config_template)
     config["CURRENT_INDEX"] = 0
     config_manager.save(config)
-    ensure_json_file("saved_yt_links.json", {"videos": []})
-    ensure_json_file("progress.json", {})
+    ensure_json_file("resources/saved_yt_links.json", {"videos": []})
+    ensure_json_file("resources/progress.json", {})
 
     #! API Reset Check #
     now = datetime.now()
@@ -67,13 +66,34 @@ def setup_environment():
         config_manager.save(config)
 
 def display_banner():
-    banner = """
-════════════ 🎵 ANI-THEMES 🎵 ════════════
-           Anime Theme Player    
-          ─────────────────────
-          ♫ By CamkoalatiXD ♫    
-    """
-    print(banner)
+    console = Console()
+    text = Text("🎵 ANI-THEMES 🎵", style="bold")
+    text.stylize("gradient(cyan, magenta)", 0, len(text))
+    console.print(text)
+    console.print("Anime Theme Player", style="italic white")
+    console.print("♫ By CamkoalatiXD ♫", style="dim")
+
+def display_recent_searchs():
+    console = Console()
+
+    past_searches = get_recent_searches()
+
+    if past_searches != []:
+        # Build table
+        table = Table(title="Recent Searches", show_header=True, header_style="bold magenta")
+        table.add_column("No.", style="dim", width=4, justify="right")
+        table.add_column("Video Title", style="bold cyan")
+        table.add_column("Date", style="green")
+
+        for i, item in enumerate(past_searches, 1):
+            table.add_row(str(i), item["title"], item["date"])
+
+        # Show inside a panel for clean separation
+        panel = Panel.fit(table, border_style="blue")
+
+        # Render above your main menu
+        console.print(panel)
+
 
 #! Main Loop #
 def main():
@@ -91,6 +111,7 @@ def main():
     try:
         if len(sys.argv) == 1:
             #display_banner()
+            display_recent_searchs()
             options = ["Search Anime Opening", "Player","Settings"]
             user_input = multi_prompt(options,"ani-themes")
             if user_input:
@@ -109,8 +130,7 @@ def main():
             random_mode()
     finally:
         shutdown_and_verify_pipes()
-        warning("Closing program in 2s...")
-        sleep(2)
+        shutdown_countdown(2)
 
 if __name__ == "__main__":
     try:

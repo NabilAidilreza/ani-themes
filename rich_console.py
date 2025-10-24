@@ -3,6 +3,9 @@ import time as ts
 from rich.console import Console
 from rich.live import Live
 from rich.text import Text
+from rich.console import Group
+from rich.table import Table
+from rich.panel import Panel
 from contextlib import contextmanager
 
 TEXT_STYLES = {
@@ -68,6 +71,12 @@ def finalok(text, console=Console()):
 
 def finalstop(text, console=Console()):
     console.print("[bright_red](FAIL) " + text + "[/bright_red]")
+
+def shutdown_countdown(seconds: int, console=Console()):
+    for i in range(seconds, 0, -1):
+        console.print(f"[bright_blue][^] Closing program in {i}s... [/bright_blue]", end="\r", highlight=False)
+        ts.sleep(1)
+    console.print(f"[bright_blue][^] Closing program now...   [/bright_blue]")
 
 def music(title,status = "",context="", console=Console()):
     console.print(

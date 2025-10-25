@@ -123,3 +123,28 @@ def get_openings_from_list(array):
             ops[i] = re.sub(r'^\d+[\.:] ', '', ops[i])
         result.append([name, {"Openings":ops,"Endings":eds}])
     return result
+
+
+def get_songs_from_anime_name(query):
+    url = f"https://api.jikan.moe/v4/anime?q={query}&limit=3"
+    response = requests.get(url)
+    data = response.json()
+    mal_id = None
+    anime_title = None
+    for item in data.get('data', []):
+        titles = [
+            item.get('title', '').lower(),
+            item.get('title_english', '').lower() if item.get('title_english') else '',
+            item.get('title_japanese', '').lower() if item.get('title_japanese') else ''
+        ]
+        anime_title = item.get('title', '')
+        if any(query.lower() in t for t in titles):
+            mal_id = item['mal_id']
+            break
+    if mal_id:
+        theme_url = f"https://api.jikan.moe/v4/anime/{mal_id}/themes"
+        response = requests.get(theme_url)
+        oped_data = response.json()
+        ops = oped_data["data"]["openings"]
+        eds = oped_data["data"]["endings"]
+        return {"Title":anime_title,"Openings":ops,"Endings":eds}

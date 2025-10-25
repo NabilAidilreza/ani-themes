@@ -9,7 +9,7 @@ from time import sleep
 
 from utils import *
 from rich_console import *
-from jikan_client import get_animes_by_keyword,get_openings_from_list,get_random_title_themes
+from jikan_client import get_animes_by_keyword,get_openings_from_list,get_random_title_themes,get_songs_from_anime_name
 from yt_client import get_yt_link
 
 #! Youtube Variables #
@@ -259,6 +259,49 @@ def search_mode(mpv_handle = None, controller_handle = None,enterFlag = False):
                 })
                 music(song_title,context=save_msg,status="Added to Queue")
         mpv_player(which_anime, anime, openings,endings, yt_link,mpv_handle,controller_handle,YOUTUBE_API_KEY)
+
+def search_exact_mode(mpv_handle = None, controller_handle = None,enterFlag = False):
+    config_manager = ConfigManager()
+    YOUTUBE_API_KEY = config_manager.load()['YOUTUBE_API_KEY']
+    anime_keyword = question("Search exact anime: ")
+    if anime_keyword:
+        result = run_with_animation_sync(
+            get_songs_from_anime_name,
+            anime_keyword,
+            text="Fetching data",
+            text_type="datain"
+        )
+        anime_title = result["Title"]
+        openings = result["Openings"]
+        endings =  result["Endings"]
+        songs = openings + endings
+        chosen_song = (multi_prompt(songs, "OPs|EDs")
+                if len(songs) > 1 else songs[0])
+        cached_link, song_title = get_cached_link(chosen_song)
+        if cached_link:
+            yt_link = cached_link
+            save_msg = "[Using Cached Link]"
+        else:
+            yt_link,song_title,save_msg = get_yt_link(anime_title, chosen_song, YOUTUBE_API_KEY, YOUTUBE_SEARCH_URL)
+        if yt_link:
+            add_search(anime_title + ": " + chosen_song)
+            if mpv_handle is None or controller_handle is None:
+                mpv_handle, controller_handle = ensure_controller_running()
+            if not enterFlag:
+                send_command(controller_handle, {
+                    "command": "loadsingle",
+                    "data": {"url": yt_link}
+                })
+                music(song_title,context=save_msg,status="Now Playing")
+            else:
+                send_command(controller_handle, {
+                    "command": "loadsingle_queue",
+                    "data": {"url": yt_link}
+                })
+                music(song_title,context=save_msg,status="Added to Queue")
+        search_exact_mode(mpv_handle,controller_handle,True)
+
+
 def mpv_player(anime_title,animes,openings,endings, yt_link,mpv_handle,controller_handle,YOUTUBE_API_KEY):
     main_title = get_main_title(anime_title)
     while True:

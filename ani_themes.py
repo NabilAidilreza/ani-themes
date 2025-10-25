@@ -7,7 +7,7 @@ from datetime import time as tm
 
 from utils import ConfigManager, multi_prompt, get_recent_searches
 from rich_console import *
-from cli import search_mode,playlist_mode,random_mode,edit_config,shutdown_and_verify_pipes
+from cli import search_mode,playlist_mode,random_mode,search_exact_mode,edit_config,shutdown_and_verify_pipes
 
 #! JSON Files and Settings Setup #
 def ensure_config_file(filepath,default_content):
@@ -112,11 +112,13 @@ def main():
         if len(sys.argv) == 1:
             #display_banner()
             display_recent_searchs()
-            options = ["Search Anime Opening", "Player","Settings"]
+            options = ["Search General Anime Opening", "Search Exact Anime Opening","Player","Settings"]
             user_input = multi_prompt(options,"ani-themes")
             if user_input:
-                if user_input == "Search Anime Opening":
+                if user_input == "Search General Anime Opening":
                     search_mode()
+                elif user_input == "Search Exact Anime Opening":
+                    search_exact_mode()
                 elif user_input == "Player":
                     playlist_mode()
                 elif user_input == "Settings":

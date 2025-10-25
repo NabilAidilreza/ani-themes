@@ -135,3 +135,30 @@ def run_with_animation(func, *args, text,text_type, show_time=True, **kwargs):
             f"[{color}]{symbol} {text}[/{color}] [grey53](took {tc['elapsed']:.2f}s)[/grey53]"
         )
     return result
+
+
+def run_with_animation_sync(func, *args, text, text_type, show_time=True, **kwargs):
+    console = Console()
+    
+    start_time = ts.perf_counter()  # Start timer
+
+    # You can keep your rich spinner/animation here if you want
+    stop_event, thread = rich_text_anim(text, text_type)
+
+    # Run the synchronous function
+    result = func(*args, **kwargs)
+
+    # Stop animation
+    stop_event.set()
+    thread.join()  # Ensure thread finishes
+
+    elapsed = ts.perf_counter() - start_time
+
+    # Print timing info
+    if show_time:
+        color, symbol = TEXT_STYLES.get(text_type, ("white", "[*]"))
+        console.print(
+            f"[{color}]{symbol} {text}[/{color}] [grey53](took {elapsed:.2f}s)[/grey53]"
+        )
+
+    return result
